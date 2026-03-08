@@ -29,6 +29,15 @@
     if (dateInput) dateInput.addEventListener("change", updateSubmitState);
     if (timeInput) timeInput.addEventListener("change", updateSubmitState);
 
+    var tzField = document.getElementById("tz_offset");
+    if (tzField && !tzField.value) {
+        var offset = -new Date().getTimezoneOffset();
+        var sign = offset >= 0 ? "+" : "-";
+        var h = String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0");
+        var m = String(Math.abs(offset) % 60).padStart(2, "0");
+        tzField.value = sign + h + ":" + m;
+    }
+
     updateSubmitState();
 
     placeInput.addEventListener("input", function () {

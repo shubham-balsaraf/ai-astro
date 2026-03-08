@@ -44,32 +44,49 @@ def get_prokerala_token():
     if _token_cache["access_token"] and time.time() < _token_cache["expires_at"] - 60:
         return _token_cache["access_token"]
 
-    resp = requests.post(PROKERALA_TOKEN_URL, data={
-        "grant_type": "client_credentials",
-        "client_id": PROKERALA_CLIENT_ID,
-        "client_secret": PROKERALA_CLIENT_SECRET,
-    }, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
-
-    _token_cache["access_token"] = data["access_token"]
-    _token_cache["expires_at"] = time.time() + data.get("expires_in", 3600)
-    return _token_cache["access_token"]
+    for attempt in range(3):
+        try:
+            resp = requests.post(PROKERALA_TOKEN_URL, data={
+                "grant_type": "client_credentials",
+                "client_id": PROKERALA_CLIENT_ID,
+                "client_secret": PROKERALA_CLIENT_SECRET,
+            }, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            _token_cache["access_token"] = data["access_token"]
+            _token_cache["expires_at"] = time.time() + data.get("expires_in", 3600)
+            return _token_cache["access_token"]
+        except requests.RequestException:
+            if attempt == 2:
+                raise
+            time.sleep(1)
 
 
 def prokerala_get(endpoint, params, accept="application/json"):
-    """Make an authenticated GET request to the Prokerala API."""
-    token = get_prokerala_token()
-    resp = requests.get(
-        f"{PROKERALA_BASE_URL}/{endpoint}",
-        params=params,
-        headers={"Authorization": f"Bearer {token}", "Accept": accept},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    if accept == "image/svg+xml":
-        return resp.text
-    return resp.json()
+    """Make an authenticated GET request to the Prokerala API with retry."""
+    for attempt in range(2):
+        try:
+            token = get_prokerala_token()
+            resp = requests.get(
+                f"{PROKERALA_BASE_URL}/{endpoint}",
+                params=params,
+                headers={"Authorization": f"Bearer {token}", "Accept": accept},
+                timeout=30,
+            )
+            if resp.status_code == 401:
+                _token_cache["access_token"] = None
+                _token_cache["expires_at"] = 0
+                if attempt == 0:
+                    continue
+            resp.raise_for_status()
+            if accept == "image/svg+xml":
+                return resp.text
+            return resp.json()
+        except requests.RequestException:
+            if attempt == 0:
+                time.sleep(1)
+                continue
+            raise
 
 
 DATA_STEPS = [
@@ -637,11 +654,16 @@ def birth_form():
         longitude = request.form.get("longitude")
         birth_place = request.form.get("birth_place")
 
+        tz_offset = request.form.get("tz_offset", "+05:30")
+        if not re.match(r'^[+-]\d{2}:\d{2}$', tz_offset):
+            tz_offset = "+05:30"
+
         session["birth_date"] = birth_date
         session["birth_time"] = birth_time
         session["birth_lat"] = latitude
         session["birth_lng"] = longitude
         session["birth_place"] = birth_place
+        session["tz_offset"] = tz_offset
 
         db.update_user_birth(username, birth_date, birth_time, birth_place, latitude, longitude)
         return redirect(url_for("reading"))
@@ -732,24 +754,35 @@ def api_reading_stream():
     lng = session["birth_lng"]
     username = session["username"]
     lang = session.get("lang", "en")
-    datetime_str = f"{date}T{time_str}:00+05:30"
+    tz_offset = session.get("tz_offset", "+05:30")
+    datetime_str = f"{date}T{time_str}:00{tz_offset}"
+
+    birth_place = session.get("birth_place", "")
 
     def generate():
-        astro_data = None
-        for message, key, flag in fetch_astrology_data_with_progress(datetime_str, lat, lng):
-            if flag == "final" and isinstance(message, dict):
-                astro_data = message
-            elif isinstance(message, str):
-                yield f"data: {json.dumps({'step': message})}\n\n"
-
-        charts = astro_data.pop("_charts", {})
-
-        yield f"data: {json.dumps({'step': 'Structuring chart data...'})}\n\n"
-        structured = structure_data_for_llm(astro_data)
-
-        yield f"data: {json.dumps({'step': 'Krama is analyzing your chart...'})}\n\n"
-
         try:
+            astro_data = None
+            for message, key, flag in fetch_astrology_data_with_progress(datetime_str, lat, lng):
+                if flag == "final" and isinstance(message, dict):
+                    astro_data = message
+                elif isinstance(message, str):
+                    yield f"data: {json.dumps({'step': message})}\n\n"
+
+            if not astro_data:
+                yield f"data: {json.dumps({'error': 'Failed to fetch astrology data. Please retry.'})}\n\n"
+                return
+
+            charts = astro_data.pop("_charts", {})
+
+            yield f"data: {json.dumps({'step': 'Structuring chart data...'})}\n\n"
+            structured = structure_data_for_llm(astro_data)
+
+            if not structured.get("planet_positions"):
+                yield f"data: {json.dumps({'error': 'Could not parse planet data. Please retry.'})}\n\n"
+                return
+
+            yield f"data: {json.dumps({'step': 'Krama is analyzing your chart...'})}\n\n"
+
             reading_text = get_llm_reading(username, structured, lang=lang)
             planets = structured.get("planet_positions", [])
             doshas = {
@@ -760,9 +793,7 @@ def api_reading_stream():
             save_payload = dict(structured, _charts=charts)
             db.save_reading(username, reading_text, save_payload)
             email_reading_to_admin(username, reading_text, {
-                "date": session.get("birth_date", ""),
-                "time": session.get("birth_time", ""),
-                "place": session.get("birth_place", ""),
+                "date": date, "time": time_str, "place": birth_place,
             })
             yield f"data: {json.dumps({'done': True, 'reading': reading_text, 'charts': charts, 'planets': planets, 'doshas': doshas})}\n\n"
         except Exception as e:

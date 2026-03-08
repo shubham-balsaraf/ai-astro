@@ -33,7 +33,7 @@ After=network.target
 User=$USER
 WorkingDirectory=$HOME/ai-astro
 Environment="PATH=$HOME/ai-astro/.venv/bin"
-ExecStart=$HOME/ai-astro/.venv/bin/gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 120 app:app
+ExecStart=$HOME/ai-astro/.venv/bin/gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 300 app:app
 Restart=always
 RestartSec=5
 

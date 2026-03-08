@@ -251,10 +251,16 @@
     var loadingStep = document.getElementById("loadingStep");
     var completedSteps = [];
 
+    var _retryCount = 0;
+    var MAX_RETRIES = 2;
+
     function startFreshReading() {
         var source = new EventSource("/api/reading/stream");
+        var gotData = false;
+
         source.onmessage = function (event) {
             var data = JSON.parse(event.data);
+            gotData = true;
 
             if (data.step) {
                 if (completedSteps.length > 0) {
@@ -272,22 +278,37 @@
 
             if (data.done) {
                 source.close();
+                _retryCount = 0;
                 showReading(data);
             }
 
             if (data.error) {
                 source.close();
-                document.getElementById("loadingState").style.display = "none";
-                document.getElementById("errorState").style.display = "flex";
-                document.getElementById("errorDetail").textContent = data.error;
+                if (_retryCount < MAX_RETRIES) {
+                    _retryCount++;
+                    loadingStep.textContent = "Retrying (" + _retryCount + "/" + MAX_RETRIES + ")...";
+                    setTimeout(startFreshReading, 2000);
+                } else {
+                    _retryCount = 0;
+                    document.getElementById("loadingState").style.display = "none";
+                    document.getElementById("errorState").style.display = "flex";
+                    document.getElementById("errorDetail").textContent = data.error;
+                }
             }
         };
 
         source.onerror = function () {
             source.close();
-            document.getElementById("loadingState").style.display = "none";
-            document.getElementById("errorState").style.display = "flex";
-            document.getElementById("errorDetail").textContent = "Connection lost. Please retry.";
+            if (!gotData && _retryCount < MAX_RETRIES) {
+                _retryCount++;
+                loadingStep.textContent = "Connection lost. Retrying (" + _retryCount + "/" + MAX_RETRIES + ")...";
+                setTimeout(startFreshReading, 2000);
+            } else if (_retryCount >= MAX_RETRIES) {
+                _retryCount = 0;
+                document.getElementById("loadingState").style.display = "none";
+                document.getElementById("errorState").style.display = "flex";
+                document.getElementById("errorDetail").textContent = "Connection lost. Please retry.";
+            }
         };
     }
 
