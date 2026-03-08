@@ -20,6 +20,9 @@
         </a>
         {% if session.get('username') %}
         <div class="nav-right">
+            {% if session.get('birth_date') %}
+            <a href="{{ url_for('compat_form') }}" class="nav-link">Compatibility</a>
+            {% endif %}
             <span class="nav-user">{{ session['username'] }}</span>
             <a href="{{ url_for('logout') }}" class="nav-link">Leave</a>
         </div>

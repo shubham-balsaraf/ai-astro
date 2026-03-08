@@ -61,6 +61,20 @@ def init_db():
                 lang        TEXT    DEFAULT 'en',
                 created_at  TEXT    NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS compatibility (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL REFERENCES users(id),
+                partner_name    TEXT    NOT NULL,
+                partner_date    TEXT    NOT NULL,
+                partner_time    TEXT    NOT NULL,
+                partner_place   TEXT,
+                partner_lat     TEXT,
+                partner_lng     TEXT,
+                match_data      TEXT,
+                reading         TEXT,
+                created_at      TEXT    NOT NULL
+            );
         """)
 
 
@@ -176,3 +190,40 @@ def get_chats(username, limit=50):
             ORDER BY created_at DESC LIMIT ?
         """, (user["id"], limit)).fetchall()
         return [dict(r) for r in rows]
+
+
+# ── Compatibility operations ─────────────────────────────────────────────
+
+def save_compatibility(username, partner_name, partner_date, partner_time,
+                       partner_place, partner_lat, partner_lng, match_data, reading):
+    user = get_user(username)
+    if not user:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    match_json = json.dumps(match_data) if match_data else None
+    with get_db() as conn:
+        conn.execute("""
+            INSERT INTO compatibility
+            (user_id, partner_name, partner_date, partner_time, partner_place,
+             partner_lat, partner_lng, match_data, reading, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user["id"], partner_name, partner_date, partner_time,
+              partner_place, partner_lat, partner_lng, match_json, reading, now))
+
+
+def get_compatibility(username, limit=5):
+    user = get_user(username)
+    if not user:
+        return []
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT * FROM compatibility WHERE user_id = ?
+            ORDER BY created_at DESC LIMIT ?
+        """, (user["id"], limit)).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            if d.get("match_data"):
+                d["match_data"] = json.loads(d["match_data"])
+            results.append(d)
+        return results

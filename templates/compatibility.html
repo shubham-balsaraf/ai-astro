@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Compatibility - Krama{% endblock %}
+
+{% block content %}
+<div class="page-section">
+    <h1 class="section-title">Compatibility Check</h1>
+    <p class="section-subtitle">Enter your partner's birth details for Kundli matching</p>
+
+    <div class="card form-card" style="margin-bottom: 24px; padding: 16px 20px;">
+        <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">
+            Your details: <strong style="color: var(--text-primary);">{{ username }}</strong>
+            &mdash; {{ birth_date }} at {{ birth_time }}, {{ birth_place }}
+        </p>
+    </div>
+
+    <form method="POST" class="card form-card" id="compatForm">
+        <div class="form-group">
+            <label for="partner_name" class="input-label">Partner's Name</label>
+            <input type="text" id="partner_name" name="partner_name" required class="input-field"
+                   placeholder="Their name or nickname">
+        </div>
+
+        <div class="form-group">
+            <label for="partner_date" class="input-label">Partner's Date of Birth</label>
+            <input type="date" id="partner_date" name="partner_date" required class="input-field">
+        </div>
+
+        <div class="form-group">
+            <label for="partner_time" class="input-label">Partner's Time of Birth</label>
+            <input type="time" id="partner_time" name="partner_time" required class="input-field">
+            <span class="input-hint">As accurate as possible for best results</span>
+        </div>
+
+        <div class="form-group">
+            <label for="partner_place" class="input-label">Partner's Place of Birth</label>
+            <input type="text" id="partner_place" name="partner_place"
+                   placeholder="e.g. New York, USA" required autocomplete="off" class="input-field">
+            <div id="partnerSuggestions" class="suggestions-dropdown"></div>
+            <span class="input-hint">Start typing and select from suggestions</span>
+        </div>
+
+        <input type="hidden" id="partner_lat" name="partner_lat" required>
+        <input type="hidden" id="partner_lng" name="partner_lng" required>
+        <input type="hidden" id="tz_offset" name="tz_offset" value="">
+
+        <button type="submit" class="btn btn-primary" id="compatSubmitBtn" disabled>
+            Check Compatibility
+        </button>
+    </form>
+
+    {% if past_matches and past_matches|length > 0 %}
+    <div class="card" style="margin-top: 24px; padding: 20px;">
+        <h3 style="color: var(--accent); margin: 0 0 12px;">Previous Matches</h3>
+        {% for m in past_matches %}
+        <a href="{{ url_for('compat_result', match_id=m.id) }}" class="compat-history-item">
+            <span class="compat-history-name">{{ m.partner_name }}</span>
+            <span class="compat-history-score">
+                {% if m.match_data and m.match_data.total_points %}
+                    {{ m.match_data.total_points }}/{{ m.match_data.maximum_points or 36 }}
+                {% endif %}
+            </span>
+            <span class="compat-history-date">{{ m.created_at[:10] }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    var placeInput = document.getElementById("partner_place");
+    var suggestionsBox = document.getElementById("partnerSuggestions");
+    var latField = document.getElementById("partner_lat");
+    var lngField = document.getElementById("partner_lng");
+    var submitBtn = document.getElementById("compatSubmitBtn");
+    var debounceTimer = null;
+
+    var tzField = document.getElementById("tz_offset");
+    if (tzField && !tzField.value) {
+        var offset = -new Date().getTimezoneOffset();
+        var sign = offset >= 0 ? "+" : "-";
+        var h = String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0");
+        var m = String(Math.abs(offset) % 60).padStart(2, "0");
+        tzField.value = sign + h + ":" + m;
+    }
+
+    function updateSubmitState() {
+        var nameOk = document.getElementById("partner_name").value.trim();
+        var dateOk = document.getElementById("partner_date").value;
+        var timeOk = document.getElementById("partner_time").value;
+        var coordsOk = latField.value && lngField.value;
+        submitBtn.disabled = !(nameOk && dateOk && timeOk && coordsOk);
+    }
+
+    document.getElementById("partner_name").addEventListener("input", updateSubmitState);
+    document.getElementById("partner_date").addEventListener("change", updateSubmitState);
+    document.getElementById("partner_time").addEventListener("change", updateSubmitState);
+
+    placeInput.addEventListener("input", function () {
+        clearTimeout(debounceTimer);
+        latField.value = "";
+        lngField.value = "";
+        updateSubmitState();
+
+        var query = placeInput.value.trim();
+        if (query.length < 3) { suggestionsBox.classList.remove("active"); return; }
+
+        debounceTimer = setTimeout(function () {
+            fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(query),
+                  { headers: { Accept: "application/json" } })
+                .then(function (r) { return r.json(); })
+                .then(function (results) {
+                    suggestionsBox.innerHTML = "";
+                    if (!results.length) { suggestionsBox.classList.remove("active"); return; }
+                    results.forEach(function (place) {
+                        var div = document.createElement("div");
+                        div.className = "suggestion-item";
+                        div.textContent = place.display_name;
+                        div.addEventListener("click", function () {
+                            placeInput.value = place.display_name;
+                            latField.value = place.lat;
+                            lngField.value = place.lon;
+                            suggestionsBox.classList.remove("active");
+                            updateSubmitState();
+                        });
+                        suggestionsBox.appendChild(div);
+                    });
+                    suggestionsBox.classList.add("active");
+                })
+                .catch(function () { suggestionsBox.classList.remove("active"); });
+        }, 350);
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!suggestionsBox.contains(e.target) && e.target !== placeInput) {
+            suggestionsBox.classList.remove("active");
+        }
+    });
+})();
+</script>
+{% endblock %}

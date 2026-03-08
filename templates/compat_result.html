@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{{ username }} & {{ partner_name }} - Krama{% endblock %}
+
+{% block content %}
+<div class="page-section container-wide">
+
+    <div id="loadingState" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text" id="loadingStep">Analyzing compatibility...</p>
+        <div id="progressSteps" class="progress-steps"></div>
+    </div>
+
+    <div id="resultContent" style="display:none;">
+        <div class="compat-header">
+            <div class="compat-names">
+                <span class="compat-person">{{ username }}</span>
+                <span class="compat-heart">&#10084;</span>
+                <span class="compat-person">{{ partner_name }}</span>
+            </div>
+            <div class="compat-score-ring" id="scoreRing">
+                <svg viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="8"
+                            stroke-dasharray="327" stroke-dashoffset="327" stroke-linecap="round"
+                            id="scoreArc" transform="rotate(-90 60 60)"/>
+                </svg>
+                <div class="compat-score-text">
+                    <span id="scoreNum">—</span>
+                    <span class="compat-score-label">/ 36</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="gunaGrid" class="guna-grid"></div>
+
+        <div class="reading-card">
+            <div id="readingText" class="reading-text"></div>
+        </div>
+
+        <div class="reading-actions">
+            <a href="{{ url_for('compat_form') }}" class="btn btn-secondary" style="width:auto;">Try Another Match</a>
+            <a href="{{ url_for('reading') }}" class="btn btn-secondary" style="width:auto;">Back to Reading</a>
+        </div>
+    </div>
+
+    <div id="errorState" class="error-container" style="display:none;">
+        <p class="error-icon">&#9888;</p>
+        <p class="error-text">Could not analyze compatibility</p>
+        <p id="errorDetail" class="error-detail"></p>
+        <div class="reading-actions">
+            <button onclick="location.reload()" class="btn btn-primary" style="width:auto;">Retry</button>
+            <a href="{{ url_for('compat_form') }}" class="btn btn-secondary">Go Back</a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function () {
+    function renderMarkdown(text) {
+        if (typeof marked !== "undefined" && marked.parse) return marked.parse(text);
+        return text.replace(/\n/g, "<br>");
+    }
+
+    var source = new EventSource("/api/compatibility/stream");
+    var stepContainer = document.getElementById("progressSteps");
+    var loadingStep = document.getElementById("loadingStep");
+    var completedSteps = [];
+
+    source.onmessage = function (event) {
+        var data = JSON.parse(event.data);
+
+        if (data.step) {
+            if (completedSteps.length > 0) {
+                var prev = completedSteps[completedSteps.length - 1];
+                prev.classList.add("step-done");
+                prev.innerHTML = "&#10003; " + prev.textContent;
+            }
+            loadingStep.textContent = data.step;
+            var stepEl = document.createElement("p");
+            stepEl.className = "step-item";
+            stepEl.textContent = data.step;
+            stepContainer.appendChild(stepEl);
+            completedSteps.push(stepEl);
+        }
+
+        if (data.done) {
+            source.close();
+            showResult(data);
+        }
+
+        if (data.error) {
+            source.close();
+            document.getElementById("loadingState").style.display = "none";
+            document.getElementById("errorState").style.display = "flex";
+            document.getElementById("errorDetail").textContent = data.error;
+        }
+    };
+
+    source.onerror = function () {
+        source.close();
+        document.getElementById("loadingState").style.display = "none";
+        document.getElementById("errorState").style.display = "flex";
+        document.getElementById("errorDetail").textContent = "Connection lost. Please retry.";
+    };
+
+    function showResult(data) {
+        document.getElementById("loadingState").style.display = "none";
+        document.getElementById("resultContent").style.display = "block";
+
+        /* Score animation */
+        var total = data.total_points || 0;
+        var max = data.max_points || 36;
+        var pct = total / max;
+        var arc = document.getElementById("scoreArc");
+        var circumference = 327;
+        arc.style.transition = "stroke-dashoffset 1.5s ease-out";
+        setTimeout(function () {
+            arc.setAttribute("stroke-dashoffset", circumference * (1 - pct));
+        }, 100);
+
+        var scoreEl = document.getElementById("scoreNum");
+        var current = 0;
+        var interval = setInterval(function () {
+            current += 0.5;
+            if (current >= total) { current = total; clearInterval(interval); }
+            scoreEl.textContent = current % 1 === 0 ? current : current.toFixed(1);
+        }, 40);
+
+        /* Color the arc based on score */
+        if (pct >= 0.7) arc.setAttribute("stroke", "#4ade80");
+        else if (pct >= 0.5) arc.setAttribute("stroke", "#ffc857");
+        else arc.setAttribute("stroke", "#f87171");
+
+        /* Guna breakdown grid */
+        var grid = document.getElementById("gunaGrid");
+        var gunas = data.gunas || [];
+        gunas.forEach(function (g) {
+            var card = document.createElement("div");
+            card.className = "guna-card";
+            var scorePct = (g.points || 0) / (g.max_points || 1);
+            var barColor = scorePct >= 0.7 ? "#4ade80" : scorePct >= 0.4 ? "#ffc857" : "#f87171";
+            card.innerHTML =
+                '<div class="guna-name">' + (g.name || '') + '</div>' +
+                '<div class="guna-score">' + (g.points || 0) + '/' + (g.max_points || 0) + '</div>' +
+                '<div class="guna-bar"><div class="guna-bar-fill" style="width:' + (scorePct * 100) + '%;background:' + barColor + '"></div></div>' +
+                '<div class="guna-koots"><span>♀ ' + (g.girl_koot || '—') + '</span><span>♂ ' + (g.boy_koot || '—') + '</span></div>';
+            grid.appendChild(card);
+        });
+
+        /* Reading */
+        document.getElementById("readingText").innerHTML = renderMarkdown(data.reading || "");
+    }
+})();
+</script>
+{% endblock %}

@@ -475,6 +475,107 @@ def get_followup_answer(username, structured_data, chat_history, question, lang=
     return response.content[0].text
 
 
+# ---------------------------------------------------------------------------
+# Compatibility Matching
+# ---------------------------------------------------------------------------
+
+def fetch_kundli_matching(user_dt, user_lat, user_lng, partner_dt, partner_lat, partner_lng):
+    """Call Prokerala kundli-matching/advanced endpoint."""
+    params = {
+        "ayanamsa": 1,
+        "girl_coordinates": f"{user_lat},{user_lng}",
+        "girl_datetime": user_dt,
+        "boy_coordinates": f"{partner_lat},{partner_lng}",
+        "boy_datetime": partner_dt,
+    }
+    return prokerala_get("kundli-matching/advanced", params)
+
+
+def structure_match_data(raw):
+    """Extract meaningful data from kundli matching response."""
+    data = _safe(raw, "data") or {}
+    out = {}
+
+    message = _safe(data, "message")
+    if message:
+        out["message"] = message
+
+    guna_milan = _safe(data, "guna_milan") or {}
+    out["total_points"] = _safe(guna_milan, "total_points")
+    out["maximum_points"] = _safe(guna_milan, "maximum_points")
+
+    gunas = _safe(guna_milan, "guna") or []
+    guna_list = []
+    for g in gunas:
+        guna_list.append({
+            "name": _safe(g, "name"),
+            "girl_koot": _safe(g, "girl_koot"),
+            "boy_koot": _safe(g, "boy_koot"),
+            "points": _safe(g, "points"),
+            "max_points": _safe(g, "maximum_points"),
+            "description": _safe(g, "description"),
+        })
+    out["gunas"] = guna_list
+
+    girl_info = _safe(data, "girl_info") or {}
+    boy_info = _safe(data, "boy_info") or {}
+    out["girl_info"] = {
+        "nakshatra": _safe(girl_info, "nakshatra", "name"),
+        "rasi": _safe(girl_info, "rasi", "name"),
+    }
+    out["boy_info"] = {
+        "nakshatra": _safe(boy_info, "nakshatra", "name"),
+        "rasi": _safe(boy_info, "rasi", "name"),
+    }
+
+    exceptions = _safe(data, "exceptions") or []
+    if exceptions:
+        out["exceptions"] = [str(e) for e in exceptions]
+
+    return out
+
+
+COMPAT_SYSTEM_PROMPT = (
+    "You are Krama, an elite Vedic Astrology compatibility analyst. "
+    "Your style: direct, strategic, no-BS, like a high-level relationship advisor. "
+    "You are given Kundli Matching (Ashtakoot Guna Milan) data from the Prokerala API. "
+    "NEVER recalculate scores — use ONLY the provided data.\n\n"
+    "Structure your analysis as:\n"
+    "## Compatibility Score\n"
+    "State the score (X/36) and what it means.\n\n"
+    "## The Breakdown\n"
+    "For each of the 8 Gunas, use:\n"
+    "- **Guna Name** (score/max): What this means for them specifically.\n\n"
+    "## Power Dynamics\n"
+    "Who leads emotionally? Who leads practically? Where friction will come.\n\n"
+    "## The Red Flags\n"
+    "Be blunt about areas of concern. What will cause fights.\n\n"
+    "## The Green Lights\n"
+    "Where this pairing genuinely works well.\n\n"
+    "## The Strategy\n"
+    "Actionable advice for making this work (or knowing when to walk).\n\n"
+    "## The Bottom Line\n"
+    "2-sentence verdict + one bold question for the user.\n\n"
+    "Keep it real. No sugarcoating. Use 'Bro', 'Listen' — same tone as readings."
+)
+
+
+def get_compatibility_reading(username, partner_name, match_data, lang="en"):
+    prompt = (
+        f"User: {username}\nPartner: {partner_name}\n\n"
+        f"Kundli Matching Data:\n{json.dumps(match_data, indent=2)}"
+    )
+    lang_suffix = LANG_INSTRUCTIONS.get(lang, "")
+    response = get_anthropic_client().messages.create(
+        model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
+        max_tokens=3000,
+        temperature=0.5,
+        system=COMPAT_SYSTEM_PROMPT + lang_suffix,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text
+
+
 def _strip_markdown(text):
     """Convert markdown to plain text for PDF."""
     text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
@@ -858,6 +959,124 @@ def download_pdf():
         as_attachment=True,
         download_name=f"krama-{username}.pdf",
     )
+
+
+# ---------------------------------------------------------------------------
+# Compatibility Routes
+# ---------------------------------------------------------------------------
+
+@app.route("/compatibility", methods=["GET", "POST"])
+def compat_form():
+    """Partner details form for compatibility matching."""
+    if "username" not in session or "birth_date" not in session:
+        return redirect(url_for("index"))
+
+    username = session["username"]
+
+    if request.method == "POST":
+        partner_name = request.form.get("partner_name", "").strip()
+        partner_date = request.form.get("partner_date")
+        partner_time = request.form.get("partner_time")
+        partner_place = request.form.get("partner_place", "")
+        partner_lat = request.form.get("partner_lat")
+        partner_lng = request.form.get("partner_lng")
+        tz_offset = request.form.get("tz_offset", session.get("tz_offset", "+05:30"))
+
+        if not all([partner_name, partner_date, partner_time, partner_lat, partner_lng]):
+            return redirect(url_for("compat_form"))
+
+        session["partner_name"] = partner_name
+        session["partner_date"] = partner_date
+        session["partner_time"] = partner_time
+        session["partner_place"] = partner_place
+        session["partner_lat"] = partner_lat
+        session["partner_lng"] = partner_lng
+        session["partner_tz"] = tz_offset
+
+        return redirect(url_for("compat_result"))
+
+    past_matches = db.get_compatibility(username, limit=10)
+
+    return render_template("compatibility.html",
+                           username=username,
+                           birth_date=session.get("birth_date", ""),
+                           birth_time=session.get("birth_time", ""),
+                           birth_place=session.get("birth_place", ""),
+                           past_matches=past_matches)
+
+
+@app.route("/compatibility/result")
+def compat_result():
+    if "partner_name" not in session:
+        return redirect(url_for("compat_form"))
+    return render_template("compat_result.html",
+                           username=session["username"],
+                           partner_name=session["partner_name"])
+
+
+@app.route("/compatibility/result/<int:match_id>")
+def compat_result_saved(match_id):
+    """Show a previously saved compatibility result."""
+    if "username" not in session:
+        return redirect(url_for("index"))
+    matches = db.get_compatibility(session["username"], limit=50)
+    match = next((m for m in matches if m["id"] == match_id), None)
+    if not match:
+        return redirect(url_for("compat_form"))
+    return render_template("compat_result_saved.html",
+                           username=session["username"],
+                           match=match)
+
+
+@app.route("/api/compatibility/stream")
+def api_compat_stream():
+    """SSE endpoint for compatibility analysis."""
+    if "username" not in session or "partner_name" not in session:
+        return jsonify({"error": "Session expired"}), 401
+
+    username = session["username"]
+    user_tz = session.get("tz_offset", "+05:30")
+    partner_tz = session.get("partner_tz", user_tz)
+
+    user_dt = f"{session['birth_date']}T{session['birth_time']}:00{user_tz}"
+    partner_dt = f"{session['partner_date']}T{session['partner_time']}:00{partner_tz}"
+
+    user_lat = session["birth_lat"]
+    user_lng = session["birth_lng"]
+    partner_lat = session["partner_lat"]
+    partner_lng = session["partner_lng"]
+    partner_name = session["partner_name"]
+    lang = session.get("lang", "en")
+
+    def generate():
+        try:
+            yield f"data: {json.dumps({'step': 'Fetching Kundli matching data...'})}\n\n"
+
+            raw_match = fetch_kundli_matching(
+                user_dt, user_lat, user_lng,
+                partner_dt, partner_lat, partner_lng,
+            )
+
+            yield f"data: {json.dumps({'step': 'Analyzing Ashtakoot Guna Milan...'})}\n\n"
+            match_data = structure_match_data(raw_match)
+
+            yield f"data: {json.dumps({'step': 'Krama is evaluating your compatibility...'})}\n\n"
+            reading = get_compatibility_reading(username, partner_name, match_data, lang=lang)
+
+            db.save_compatibility(
+                username, partner_name,
+                session["partner_date"], session["partner_time"],
+                session.get("partner_place", ""),
+                partner_lat, partner_lng,
+                match_data, reading,
+            )
+
+            yield f"data: {json.dumps({'done': True, 'reading': reading, 'total_points': match_data.get('total_points', 0), 'max_points': match_data.get('maximum_points', 36), 'gunas': match_data.get('gunas', [])})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream")
 
 
 @app.route("/logout")
