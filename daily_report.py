@@ -3,14 +3,17 @@
 daily_report.py — Generate a daily activity report from krama.db
 
 Usage:
-    python daily_report.py              # today's activity
-    python daily_report.py 2026-03-07   # specific date
-    python daily_report.py all          # all time
+    python3 daily_report.py                # today's activity (truncated)
+    python3 daily_report.py --full         # today's activity (full text)
+    python3 daily_report.py 2026-03-07     # specific date
+    python3 daily_report.py all            # all time
+    python3 daily_report.py all --full     # all time, full text
 
-Output: prints to terminal and saves to daily_report.md
+Output: prints to terminal and saves to daily_report_<date>.md
 """
 
 import json
+import re
 import sqlite3
 import sys
 from datetime import datetime, timezone
@@ -24,7 +27,6 @@ def run_query(conn, sql, params=()):
 
 
 def strip_markdown(text):
-    import re
     text = re.sub(r'#{1,4}\s+', '', text)
     text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
     text = re.sub(r'\*(.+?)\*', r'\1', text)
@@ -38,7 +40,7 @@ def truncate(text, length=300):
     return text[:length].rsplit(' ', 1)[0] + '...'
 
 
-def generate_report(date_filter=None):
+def generate_report(date_filter=None, full=False):
     conn = sqlite3.connect(DB_PATH)
 
     if date_filter == "all":
@@ -92,7 +94,6 @@ def generate_report(date_filter=None):
             lines.append(f"\n---\n")
             lines.append(f"## {i}. {uname}\n")
 
-            # Birth info
             if user.get('birth_date'):
                 lines.append(f"**Birth details:**")
                 lines.append(f"- Date: {user['birth_date']}")
@@ -101,7 +102,6 @@ def generate_report(date_filter=None):
                 lines.append(f"- Coordinates: {user.get('latitude', 'N/A')}, {user.get('longitude', 'N/A')}")
                 lines.append("")
 
-            # Readings
             readings = run_query(conn, f"""
                 SELECT reading, created_at FROM readings
                 WHERE user_id = ? AND {date_clause.replace('created_at', 'readings.created_at')}
@@ -113,11 +113,14 @@ def generate_report(date_filter=None):
                 for j, r in enumerate(readings, 1):
                     ts = r['created_at'][:19].replace('T', ' ')
                     lines.append(f"**Reading {j}** — {ts}\n")
-                    lines.append(f"```")
-                    lines.append(truncate(r['reading'], 500))
-                    lines.append(f"```\n")
+                    if full:
+                        lines.append(r['reading'])
+                    else:
+                        lines.append(f"```")
+                        lines.append(truncate(r['reading'], 500))
+                        lines.append(f"```")
+                    lines.append("")
 
-            # Chats
             chats = run_query(conn, f"""
                 SELECT question, answer, lang, created_at FROM chats
                 WHERE user_id = ? AND {date_clause.replace('created_at', 'chats.created_at')}
@@ -130,16 +133,17 @@ def generate_report(date_filter=None):
                     ts = c['created_at'][:19].replace('T', ' ')
                     lang_tag = f" [{c['lang']}]" if c['lang'] != 'en' else ""
                     lines.append(f"**Q{lang_tag}** ({ts}): {c['question']}\n")
-                    lines.append(f"> **Krama:** {truncate(c['answer'], 400)}\n")
+                    if full:
+                        lines.append(f"> **Krama:** {c['answer']}\n")
+                    else:
+                        lines.append(f"> **Krama:** {truncate(c['answer'], 400)}\n")
 
     conn.close()
 
     report = "\n".join(lines)
 
-    # Print to terminal
     print(report)
 
-    # Save to file
     filename = f"daily_report_{title_date.replace(' ', '_')}.md"
     with open(filename, "w") as f:
         f.write(report)
@@ -150,5 +154,7 @@ def generate_report(date_filter=None):
 
 
 if __name__ == "__main__":
-    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    generate_report(date_arg)
+    args = [a for a in sys.argv[1:] if a != "--full"]
+    full = "--full" in sys.argv
+    date_arg = args[0] if args else None
+    generate_report(date_arg, full=full)
