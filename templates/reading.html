@@ -82,6 +82,11 @@
             </div>
         </div>
 
+        <div id="langNotice" class="lang-notice" style="display:none;">
+            <span id="langNoticeText"></span>
+            <button id="langRegenBtn" class="btn btn-primary btn-sm">Regenerate in new language</button>
+        </div>
+
         <div class="reading-actions">
             <button id="downloadPdfBtn" class="btn btn-primary" style="width:auto;">Download PDF</button>
             <button id="regenBtn" class="btn btn-secondary" style="width:auto;">Regenerate Reading</button>
@@ -111,6 +116,7 @@
     var questionsUsed = 0;
     var username = "{{ username }}";
     var currentLang = "{{ lang }}";
+    var readingLang = "{{ lang }}";
 
     /* ── Translation dictionaries ── */
     var T = {
@@ -236,6 +242,8 @@
         if (data.charts) {
             initChartViewer(data.charts, data.planets || [], data.doshas || {});
         }
+        readingLang = currentLang;
+        hideLangNotice();
     }
 
     /* ── Try cached reading first, then SSE fallback ── */
@@ -937,9 +945,36 @@
             });
     });
 
+    /* ── Language notice helpers ── */
+    var langNames = {en: "English", mr: "मराठी (Marathi)", sq: "Shqip (Albanian)"};
+    function hideLangNotice() {
+        var n = document.getElementById("langNotice");
+        if (n) n.style.display = "none";
+    }
+    function showLangNotice(newLang) {
+        var n = document.getElementById("langNotice");
+        var t = document.getElementById("langNoticeText");
+        if (!n || !t) return;
+        t.textContent = "Report is in " + (langNames[readingLang] || "English") + ". Regenerate for " + (langNames[newLang] || newLang) + "?";
+        n.style.display = "flex";
+    }
+    document.getElementById("langRegenBtn").addEventListener("click", function () {
+        hideLangNotice();
+        document.getElementById("regenBtn").click();
+    });
+
     /* ── Language toggle (instant, no reload, no tokens) ── */
     function applyLanguage(lang) {
         currentLang = lang;
+
+        /* Show notice if reading exists in a different language */
+        var readingVisible = document.getElementById("readingContent") &&
+            document.getElementById("readingContent").style.display !== "none";
+        if (readingVisible && lang !== readingLang) {
+            showLangNotice(lang);
+        } else {
+            hideLangNotice();
+        }
 
         /* Update cosmic map title */
         var cmTitle = document.querySelector(".chart-viewer-title");
