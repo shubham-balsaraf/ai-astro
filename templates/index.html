@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Krama - Discover Your Stars{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-symbol">
+        <svg class="hero-logo" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="56" stroke="currentColor" stroke-width="2" opacity="0.2"/>
+            <circle cx="60" cy="60" r="48" stroke="currentColor" stroke-width="1.2" opacity="0.1"/>
+            <text x="60" y="80" text-anchor="middle" font-size="68" fill="currentColor" font-family="serif">ॐ</text>
+        </svg>
+    </div>
+    <h1 class="hero-title">Krama</h1>
+    <p class="hero-subtitle">Your Vedic Stars, Read by AI</p>
+
+    <form method="POST" class="card entry-card">
+        <label for="username" class="input-label">What shall we call you?</label>
+        <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Enter your name"
+            required
+            autocomplete="off"
+            class="input-field"
+            maxlength="50"
+        >
+        <button type="submit" class="btn btn-primary">Begin Your Journey</button>
+    </form>
+
+    <div class="hero-features">
+        <div class="feature">
+            <div class="feature-icon">&#9790;</div>
+            <p>Birth Chart Analysis</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">&#9788;</div>
+            <p>Planet Positions</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">&#10025;</div>
+            <p>AI-Powered Readings</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

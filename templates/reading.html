@@ -1,0 +1,1037 @@
+{% extends "base.html" %}
+{% block title %}Your Reading - Krama{% endblock %}
+
+{% block container_class %}container container-wide{% endblock %}
+
+{% block content %}
+<div class="page-section">
+    <div class="reading-header">
+        <h1 class="section-title">{{ username }}'s Reading</h1>
+        <p class="section-subtitle">Born in {{ birth_place }}</p>
+        <div class="lang-toggle">
+            <button class="lang-btn{% if lang == 'en' %} lang-active{% endif %}" data-lang="en">English</button>
+            <button class="lang-btn{% if lang == 'mr' %} lang-active{% endif %}" data-lang="mr">मराठी</button>
+            <button class="lang-btn{% if lang == 'sq' %} lang-active{% endif %}" data-lang="sq">Shqip</button>
+        </div>
+    </div>
+
+    <div id="loadingState" class="loading-container">
+        <div class="loader">
+            <div class="loader-ring"></div>
+            <div class="loader-symbol">&#9737;</div>
+        </div>
+        <p id="loadingStep" class="loading-text">Starting up...</p>
+        <div id="progressSteps" class="progress-steps"></div>
+    </div>
+
+    <div id="readingContent" class="reading-content" style="display:none;">
+        <div id="pdfRegion">
+            <div id="chartsSection" style="display:none;">
+                <div class="cosmic-fullscreen" id="cosmicFullscreen">
+                    <div class="cosmic-map-container">
+                        <h2 class="chart-viewer-title">Your Cosmic Map</h2>
+                        <div class="cosmic-map" id="cosmicMap"></div>
+                        <div class="cosmic-tooltip" id="cosmicTooltip"></div>
+                    </div>
+                    <div class="cosmic-hint" id="cosmicHint">Drag to rotate · Scroll to zoom · Click any planet</div>
+                    <button class="cosmic-continue" id="cosmicContinue">
+                        <span>Explore Your Reading</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 13l5 5 5-5M7 6l5 5 5-5"/></svg>
+                    </button>
+                </div>
+
+                <div class="planet-panel" id="planetPanel"></div>
+                <div class="dosha-strip" id="doshaStrip"></div>
+
+                <details class="traditional-charts">
+                    <summary class="traditional-toggle">View Traditional Charts</summary>
+                    <div class="chart-tabs" role="tablist">
+                        <div class="chart-tab-indicator" id="tabIndicator"></div>
+                        <button class="chart-tab active" data-chart="rasi" role="tab">Rasi D1</button>
+                        <button class="chart-tab" data-chart="navamsa" role="tab">Navamsa D9</button>
+                        <button class="chart-tab" data-chart="lagna" role="tab">Lagna</button>
+                        <button class="chart-tab" data-chart="moon" role="tab">Moon</button>
+                        <button class="chart-tab" data-chart="dasamsa" role="tab">D10 Career</button>
+                    </div>
+                    <div class="chart-stage">
+                        <div class="chart-pane active" id="pane-rasi"><div class="chart-svg" id="chart-rasi"></div></div>
+                        <div class="chart-pane" id="pane-navamsa"><div class="chart-svg" id="chart-navamsa"></div></div>
+                        <div class="chart-pane" id="pane-lagna"><div class="chart-svg" id="chart-lagna"></div></div>
+                        <div class="chart-pane" id="pane-moon"><div class="chart-svg" id="chart-moon"></div></div>
+                        <div class="chart-pane" id="pane-dasamsa"><div class="chart-svg" id="chart-dasamsa"></div></div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="card reading-card">
+                <div id="readingText" class="reading-text"></div>
+            </div>
+
+            <div class="card chat-card" id="chatSection">
+                <div class="chat-header">
+                    <h3 class="chat-title">Drill deeper — ask Krama anything</h3>
+                    <p class="chat-counter"><span id="questionCount">10</span> questions remaining</p>
+                </div>
+                <div id="chatMessages" class="chat-messages"></div>
+                <div id="chatInputArea" class="chat-input-row">
+                    <input type="text" id="chatInput" class="input-field chat-input"
+                           placeholder="e.g. Break down my 10th house for career moves"
+                           maxlength="300">
+                    <button id="chatSendBtn" class="btn btn-primary chat-send">Ask</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="reading-actions">
+            <button id="downloadPdfBtn" class="btn btn-primary" style="width:auto;">Download PDF</button>
+            <button id="regenBtn" class="btn btn-secondary" style="width:auto;">Regenerate Reading</button>
+            <a href="{{ url_for('birth_form') }}" class="btn btn-secondary">Change Birth Details</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Start Over</a>
+        </div>
+    </div>
+
+    <div id="errorState" class="error-container" style="display:none;">
+        <p class="error-icon">&#9888;</p>
+        <p class="error-text">The stars are momentarily obscured</p>
+        <p id="errorDetail" class="error-detail"></p>
+        <div class="reading-actions">
+            <button onclick="location.reload()" class="btn btn-primary" style="width:auto;">Retry Reading</button>
+            <a href="{{ url_for('birth_form') }}" class="btn btn-secondary">Change Birth Details</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
+<script>
+(function () {
+    var MAX_QUESTIONS = 10;
+    var chatHistory = [];
+    var questionsUsed = 0;
+    var username = "{{ username }}";
+    var currentLang = "{{ lang }}";
+
+    /* ── Translation dictionaries ── */
+    var T = {
+        en: {
+            p: {Sun:"Sun",Moon:"Moon",Mars:"Mars",Mercury:"Mercury",Jupiter:"Jupiter",
+                Venus:"Venus",Saturn:"Saturn",Rahu:"Rahu",Ketu:"Ketu"},
+            s: {Mesha:"Aries",Vrishabha:"Taurus",Mithuna:"Gemini",Karka:"Cancer",
+                Simha:"Leo",Kanya:"Virgo",Tula:"Libra",Vrischika:"Scorpio",
+                Dhanu:"Sagittarius",Makara:"Capricorn",Kumbha:"Aquarius",Meena:"Pisces"},
+            signs: ["Aries","Taurus","Gemini","Cancer","Leo","Virgo",
+                    "Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"],
+            vedic: ["Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya",
+                    "Tula","Vrischika","Dhanu","Makara","Kumbha","Meena"],
+            sig: {Sun:"Soul \u2022 Authority \u2022 Father",Moon:"Mind \u2022 Emotions \u2022 Mother",
+                  Mars:"Energy \u2022 Courage \u2022 Property",Mercury:"Intellect \u2022 Communication \u2022 Business",
+                  Jupiter:"Wisdom \u2022 Fortune \u2022 Dharma",Venus:"Love \u2022 Luxury \u2022 Beauty",
+                  Saturn:"Discipline \u2022 Karma \u2022 Structure",Rahu:"Obsession \u2022 Innovation \u2022 Illusion",
+                  Ketu:"Liberation \u2022 Spirituality \u2022 Moksha"},
+            ui: {cosmicTitle:"Your Cosmic Map",chatTitle:"Drill deeper \u2014 ask Krama anything",
+                 remaining:"questions remaining",download:"Download PDF",regen:"Regenerate Reading",
+                 changeBirth:"Change Birth Details",startOver:"Start Over",traditional:"View Traditional Charts",
+                 lord:"Lord",sign:"Sign",longitude:"Longitude",chatPlaceholder:"e.g. Break down my 10th house for career moves",
+                 mangal:"Mangal Dosha",kaalSarp:"Kaal Sarp",sadeSati:"Sade Sati",
+                 clear:"Clear",active:"Active",inactive:"Inactive"}
+        },
+        mr: {
+            p: {Sun:"\u0938\u0942\u0930\u094D\u092F",Moon:"\u091A\u0902\u0926\u094D\u0930",
+                Mars:"\u092E\u0902\u0917\u0933",Mercury:"\u092C\u0941\u0927",
+                Jupiter:"\u0917\u0941\u0930\u0941",Venus:"\u0936\u0941\u0915\u094D\u0930",
+                Saturn:"\u0936\u0928\u093F",Rahu:"\u0930\u093E\u0939\u0942",
+                Ketu:"\u0915\u0947\u0924\u0942"},
+            s: {Mesha:"\u092E\u0947\u0937",Vrishabha:"\u0935\u0943\u0937\u092D",
+                Mithuna:"\u092E\u093F\u0925\u0941\u0928",Karka:"\u0915\u0930\u094D\u0915",
+                Simha:"\u0938\u093F\u0902\u0939",Kanya:"\u0915\u0928\u094D\u092F\u093E",
+                Tula:"\u0924\u0941\u0933\u093E",Vrischika:"\u0935\u0943\u0936\u094D\u091A\u093F\u0915",
+                Dhanu:"\u0927\u0928\u0941",Makara:"\u092E\u0915\u0930",
+                Kumbha:"\u0915\u0941\u0902\u092D",Meena:"\u092E\u0940\u0928"},
+            signs: ["\u092E\u0947\u0937","\u0935\u0943\u0937\u092D","\u092E\u093F\u0925\u0941\u0928",
+                    "\u0915\u0930\u094D\u0915","\u0938\u093F\u0902\u0939","\u0915\u0928\u094D\u092F\u093E",
+                    "\u0924\u0941\u0933\u093E","\u0935\u0943\u0936\u094D\u091A\u093F\u0915",
+                    "\u0927\u0928\u0941","\u092E\u0915\u0930","\u0915\u0941\u0902\u092D","\u092E\u0940\u0928"],
+            vedic: ["\u092E\u0947\u0937","\u0935\u0943\u0937\u092D","\u092E\u093F\u0925\u0941\u0928",
+                    "\u0915\u0930\u094D\u0915","\u0938\u093F\u0902\u0939","\u0915\u0928\u094D\u092F\u093E",
+                    "\u0924\u0941\u0933\u093E","\u0935\u0943\u0936\u094D\u091A\u093F\u0915",
+                    "\u0927\u0928\u0941","\u092E\u0915\u0930","\u0915\u0941\u0902\u092D","\u092E\u0940\u0928"],
+            sig: {Sun:"\u0906\u0924\u094D\u092E\u093E \u2022 \u0905\u0927\u093F\u0915\u093E\u0930 \u2022 \u092A\u093F\u0924\u093E",
+                  Moon:"\u092E\u0928 \u2022 \u092D\u093E\u0935\u0928\u093E \u2022 \u0906\u0908",
+                  Mars:"\u0936\u0915\u094D\u0924\u0940 \u2022 \u0927\u0948\u0930\u094D\u092F \u2022 \u092E\u093E\u0932\u092E\u0924\u094D\u0924\u093E",
+                  Mercury:"\u092C\u0941\u0926\u094D\u0927\u0940 \u2022 \u0938\u0902\u0935\u093E\u0926 \u2022 \u0935\u094D\u092F\u093E\u092A\u093E\u0930",
+                  Jupiter:"\u091C\u094D\u091E\u093E\u0928 \u2022 \u092D\u093E\u0917\u094D\u092F \u2022 \u0927\u0930\u094D\u092E",
+                  Venus:"\u092A\u094D\u0930\u0947\u092E \u2022 \u0910\u0936\u094D\u0935\u0930\u094D\u092F \u2022 \u0938\u094C\u0902\u0926\u0930\u094D\u092F",
+                  Saturn:"\u0936\u093F\u0938\u094D\u0924 \u2022 \u0915\u0930\u094D\u092E \u2022 \u0930\u091A\u0928\u093E",
+                  Rahu:"\u092E\u093E\u092F\u093E \u2022 \u0928\u0935\u0928\u093F\u0930\u094D\u092E\u093F\u0924\u0940 \u2022 \u092D\u094D\u0930\u092E",
+                  Ketu:"\u092E\u094B\u0915\u094D\u0937 \u2022 \u0905\u0927\u094D\u092F\u093E\u0924\u094D\u092E \u2022 \u0935\u0948\u0930\u093E\u0917\u094D\u092F"},
+            ui: {cosmicTitle:"\u0924\u0941\u092E\u091A\u093E \u0916\u0917\u094B\u0932\u0940\u092F \u0928\u0915\u093E\u0936\u093E",
+                 chatTitle:"\u0915\u094D\u0930\u092E\u093E\u0932\u093E \u0915\u093E\u0939\u0940\u0939\u0940 \u0935\u093F\u091A\u093E\u0930\u093E",
+                 remaining:"\u092A\u094D\u0930\u0936\u094D\u0928 \u0936\u093F\u0932\u094D\u0932\u0915",
+                 download:"PDF \u0921\u093E\u0909\u0928\u0932\u094B\u0921",regen:"\u092A\u0941\u0928\u094D\u0939\u093E \u0935\u093E\u091A\u093E",
+                 changeBirth:"\u091C\u0928\u094D\u092E \u0924\u092A\u0936\u0940\u0932 \u092C\u0926\u0932\u093E",
+                 startOver:"\u092A\u0941\u0928\u094D\u0939\u093E \u0938\u0941\u0930\u0942",
+                 traditional:"\u092A\u093E\u0930\u0902\u092A\u093E\u0930\u093F\u0915 \u091A\u093E\u0930\u094D\u091F",
+                 lord:"\u0938\u094D\u0935\u093E\u092E\u0940",sign:"\u0930\u093E\u0936\u0940",
+                 longitude:"\u0930\u0947\u0916\u093E\u0902\u0936",
+                 chatPlaceholder:"\u0909\u0926\u093E. \u0915\u0930\u093F\u0905\u0930 \u0938\u093E\u0920\u0940 \u0926\u0936\u092E \u0918\u0930 \u0938\u093E\u0902\u0917\u093E",
+                 mangal:"\u092E\u0902\u0917\u0933 \u0926\u094B\u0937",kaalSarp:"\u0915\u093E\u0933 \u0938\u0930\u094D\u092A",
+                 sadeSati:"\u0938\u093E\u0921\u0947\u0938\u093E\u0924\u0940",
+                 clear:"\u0928\u093E\u0939\u0940",active:"\u0938\u0915\u094D\u0930\u093F\u092F",
+                 inactive:"\u0928\u093F\u0937\u094D\u0915\u094D\u0930\u093F\u092F"}
+        },
+        sq: {
+            p: {Sun:"Dielli",Moon:"H\u00ebna",Mars:"Marsi",Mercury:"M\u00ebrkuri",
+                Jupiter:"Jupiteri",Venus:"Venusi",Saturn:"Saturni",Rahu:"Rahu",Ketu:"Ketu"},
+            s: {Mesha:"Dashi",Vrishabha:"Demi",Mithuna:"Binjakët",Karka:"Gaforrja",
+                Simha:"Luani",Kanya:"Virgjëresha",Tula:"Peshorja",Vrischika:"Akrepi",
+                Dhanu:"Shigjetari",Makara:"Bricjapi",Kumbha:"Ujori",Meena:"Peshqit"},
+            signs: ["Dashi","Demi","Binjakët","Gaforrja","Luani","Virgjëresha",
+                    "Peshorja","Akrepi","Shigjetari","Bricjapi","Ujori","Peshqit"],
+            vedic: ["Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya",
+                    "Tula","Vrischika","Dhanu","Makara","Kumbha","Meena"],
+            sig: {Sun:"Shpirti \u2022 Autoriteti \u2022 Babai",Moon:"Mendja \u2022 Emocionet \u2022 N\u00ebna",
+                  Mars:"Energjia \u2022 Guximi \u2022 Prona",Mercury:"Intelekti \u2022 Komunikimi \u2022 Biznesi",
+                  Jupiter:"Urt\u00ebsia \u2022 Fati \u2022 Dharma",Venus:"Dashuria \u2022 Luksi \u2022 Bukuria",
+                  Saturn:"Disiplina \u2022 Karma \u2022 Struktura",Rahu:"Obsesioni \u2022 Inovacioni \u2022 Iluzioni",
+                  Ketu:"\u00c7lirimi \u2022 Shpirt\u00ebroria \u2022 Moksha"},
+            ui: {cosmicTitle:"Harta Juaj Kozmike",chatTitle:"Pyetni Krama \u00e7far\u00eb",
+                 remaining:"pyetje t\u00eb mbetura",download:"Shkarko PDF",regen:"Rigjenero Leximin",
+                 changeBirth:"Ndrysho T\u00eb Dh\u00ebnat",startOver:"Fillo P\u00ebrpara",
+                 traditional:"Shiko Grafikët Tradicionale",lord:"Zot\u00ebria",sign:"Shenja",
+                 longitude:"Gjat\u00ebsia",chatPlaceholder:"p.sh. Analizo sht\u00ebpin\u00eb e 10-t\u00eb p\u00ebr karrier\u00ebn",
+                 mangal:"Mangal Dosha",kaalSarp:"Kaal Sarp",sadeSati:"Sade Sati",
+                 clear:"Past\u00ebr",active:"Aktiv",inactive:"Joaktiv"}
+        }
+    };
+
+    /* Translation helpers */
+    var _signMap = {Aries:"Mesha",Taurus:"Vrishabha",Gemini:"Mithuna",Cancer:"Karka",
+                    Leo:"Simha",Virgo:"Kanya",Libra:"Tula",Scorpio:"Vrischika",
+                    Sagittarius:"Dhanu",Capricorn:"Makara",Aquarius:"Kumbha",Pisces:"Meena",
+                    Mesha:"Mesha",Vrishabha:"Vrishabha",Mithuna:"Mithuna",Karka:"Karka",
+                    Simha:"Simha",Kanya:"Kanya",Tula:"Tula",Vrischika:"Vrischika",
+                    Dhanu:"Dhanu",Makara:"Makara",Kumbha:"Kumbha",Meena:"Meena"};
+    function trPlanet(name) { return (T[currentLang] && T[currentLang].p[name]) || name; }
+    function trSign(name) { var k = _signMap[name] || name; return (T[currentLang] && T[currentLang].s[k]) || name; }
+    function trUI(key) { return (T[currentLang] && T[currentLang].ui[key]) || (T.en.ui[key]) || key; }
+    function trSig(name) { return (T[currentLang] && T[currentLang].sig[name]) || (T.en.sig[name]) || ""; }
+    function trVedic() { return (T[currentLang] && T[currentLang].vedic) || T.en.vedic; }
+    function trSigns() { return (T[currentLang] && T[currentLang].signs) || T.en.signs; }
+
+    var _panelPlanets = [], _panelDoshas = {};
+    var renderPlanetPanel = function () {};
+    var renderDoshaStrip = function () {};
+
+    function renderMarkdown(text) {
+        if (typeof marked !== "undefined" && marked.parse) return marked.parse(text);
+        return text.replace(/\n/g, "<br>");
+    }
+
+    /* ── Show reading result ── */
+    function showReading(data) {
+        document.getElementById("loadingState").style.display = "none";
+        document.getElementById("readingContent").style.display = "block";
+        document.getElementById("readingText").innerHTML = renderMarkdown(data.reading);
+        if (data.charts) {
+            initChartViewer(data.charts, data.planets || [], data.doshas || {});
+        }
+    }
+
+    /* ── Try cached reading first, then SSE fallback ── */
+    var stepContainer = document.getElementById("progressSteps");
+    var loadingStep = document.getElementById("loadingStep");
+    var completedSteps = [];
+
+    function startFreshReading() {
+        var source = new EventSource("/api/reading/stream");
+        source.onmessage = function (event) {
+            var data = JSON.parse(event.data);
+
+            if (data.step) {
+                if (completedSteps.length > 0) {
+                    var prev = completedSteps[completedSteps.length - 1];
+                    prev.classList.add("step-done");
+                    prev.innerHTML = "&#10003; " + prev.textContent;
+                }
+                loadingStep.textContent = data.step;
+                var stepEl = document.createElement("p");
+                stepEl.className = "step-item";
+                stepEl.textContent = data.step;
+                stepContainer.appendChild(stepEl);
+                completedSteps.push(stepEl);
+            }
+
+            if (data.done) {
+                source.close();
+                showReading(data);
+            }
+
+            if (data.error) {
+                source.close();
+                document.getElementById("loadingState").style.display = "none";
+                document.getElementById("errorState").style.display = "flex";
+                document.getElementById("errorDetail").textContent = data.error;
+            }
+        };
+
+        source.onerror = function () {
+            source.close();
+            document.getElementById("loadingState").style.display = "none";
+            document.getElementById("errorState").style.display = "flex";
+            document.getElementById("errorDetail").textContent = "Connection lost. Please retry.";
+        };
+    }
+
+    loadingStep.textContent = "Checking for previous reading...";
+    fetch("/api/reading/cached")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.found) {
+                showReading(data);
+            } else {
+                loadingStep.textContent = "Starting up...";
+                startFreshReading();
+            }
+        })
+        .catch(function () {
+            loadingStep.textContent = "Starting up...";
+            startFreshReading();
+        });
+
+    /* ── Typing indicator ── */
+    function showTyping() {
+        var div = document.createElement("div");
+        div.className = "chat-msg chat-msg-assistant typing-indicator";
+        div.id = "typingBubble";
+        div.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function hideTyping() {
+        var el = document.getElementById("typingBubble");
+        if (el) el.remove();
+    }
+
+    /* ── Follow-up chat ── */
+    var chatInput = document.getElementById("chatInput");
+    var chatSendBtn = document.getElementById("chatSendBtn");
+    var chatMessages = document.getElementById("chatMessages");
+    var questionCountEl = document.getElementById("questionCount");
+
+    function updateCounter() {
+        var remaining = MAX_QUESTIONS - questionsUsed;
+        questionCountEl.textContent = remaining;
+        if (remaining <= 0) {
+            chatInput.disabled = true;
+            chatSendBtn.disabled = true;
+            chatInput.placeholder = "No questions remaining";
+        }
+    }
+
+    function addMessage(role, text) {
+        var div = document.createElement("div");
+        div.className = "chat-msg chat-msg-" + role;
+        div.innerHTML = role === "assistant" ? renderMarkdown(text) : text;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function sendQuestion() {
+        var question = chatInput.value.trim();
+        if (!question || questionsUsed >= MAX_QUESTIONS) return;
+
+        addMessage("user", question);
+        chatInput.value = "";
+        questionsUsed++;
+        updateCounter();
+
+        chatSendBtn.disabled = true;
+        chatInput.disabled = true;
+        showTyping();
+
+        fetch("/api/chat", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({question: question, history: chatHistory})
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            hideTyping();
+            if (data.error) {
+                addMessage("assistant", "Sorry, I couldn't answer that: " + data.error);
+            } else {
+                chatHistory.push({role: "user", content: question});
+                chatHistory.push({role: "assistant", content: data.answer});
+                addMessage("assistant", data.answer);
+            }
+        })
+        .catch(function () {
+            hideTyping();
+            addMessage("assistant", "Something went wrong. Try again.");
+        })
+        .finally(function () {
+            chatSendBtn.disabled = (questionsUsed >= MAX_QUESTIONS);
+            chatInput.disabled = (questionsUsed >= MAX_QUESTIONS);
+        });
+    }
+
+    chatSendBtn.addEventListener("click", sendQuestion);
+    chatInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") sendQuestion();
+    });
+
+    updateCounter();
+
+    /* ── Interactive chart viewer ── */
+    function initChartViewer(charts, planets, doshas) {
+        var hasData = planets && planets.length > 0;
+        var hasChart = false;
+
+        var types = ["rasi", "navamsa", "lagna", "moon", "dasamsa"];
+        types.forEach(function (ct) {
+            if (charts[ct]) {
+                var el = document.getElementById("chart-" + ct);
+                if (el) { el.innerHTML = charts[ct]; hasChart = true; }
+            }
+        });
+
+        if (!hasData && !hasChart) return;
+        document.getElementById("chartsSection").style.display = "block";
+
+        /* ── Cosmic Map (solar-system style) ── */
+        if (hasData) buildCosmicMap(planets);
+
+        /* ── Traditional charts tab control ── */
+        if (hasChart) {
+            var tabs = document.querySelectorAll(".chart-tab");
+            var indicator = document.getElementById("tabIndicator");
+            var activeTab = document.querySelector(".chart-tab.active");
+
+            function moveIndicator(tab) {
+                indicator.style.width = tab.offsetWidth + "px";
+                indicator.style.left = tab.offsetLeft + "px";
+            }
+            document.querySelector(".traditional-charts").addEventListener("toggle", function () {
+                if (this.open && activeTab) setTimeout(function () { moveIndicator(activeTab); }, 50);
+            });
+            window.addEventListener("resize", function () {
+                var cur = document.querySelector(".chart-tab.active");
+                if (cur) moveIndicator(cur);
+            });
+
+            tabs.forEach(function (tab) {
+                tab.addEventListener("click", function () {
+                    tabs.forEach(function (t) { t.classList.remove("active"); });
+                    tab.classList.add("active");
+                    moveIndicator(tab);
+                    document.querySelectorAll(".chart-pane").forEach(function (p) { p.classList.remove("active"); });
+                    var target = document.getElementById("pane-" + tab.getAttribute("data-chart"));
+                    if (target) target.classList.add("active");
+                });
+            });
+        }
+
+        /* ── Planet panel ── */
+        _panelPlanets = planets;
+        _panelDoshas = doshas;
+
+        renderPlanetPanel = function () {
+            if (!_panelPlanets || _panelPlanets.length === 0) return;
+            var panel = document.getElementById("planetPanel");
+            var symbols = {"Sun":"\u2609","Moon":"\u263D","Mars":"\u2642","Mercury":"\u263F","Jupiter":"\u2643",
+                           "Venus":"\u2640","Saturn":"\u2644","Rahu":"\u260A","Ketu":"\u260B","Ascendant":"\u2191"};
+            var html = '<div class="planet-grid">';
+            _panelPlanets.forEach(function (p) {
+                var sym = symbols[p.name] || "\u25CF";
+                var retro = p.is_retrograde ? '<span class="retro-badge">R</span>' : "";
+                var deg = p.degree_in_sign != null ? parseFloat(p.degree_in_sign).toFixed(1) + "\u00B0" : "";
+                html += '<div class="planet-card" data-planet="' + (p.name || "") + '">'
+                    + '<div class="planet-symbol">' + sym + '</div>'
+                    + '<div class="planet-info">'
+                    + '<span class="planet-name">' + trPlanet(p.name || "") + retro + '</span>'
+                    + '<span class="planet-detail">' + trSign(p.sign || "") + " " + deg + '</span>'
+                    + '</div></div>';
+            });
+            html += '</div>';
+            panel.innerHTML = html;
+
+            panel.querySelectorAll(".planet-card").forEach(function (card) {
+                var pName = card.getAttribute("data-planet") || "";
+                card.addEventListener("mouseenter", function () {
+                    card.classList.add("planet-card-active");
+                    highlightCosmicPlanet(pName, true);
+                });
+                card.addEventListener("mouseleave", function () {
+                    card.classList.remove("planet-card-active");
+                    highlightCosmicPlanet(pName, false);
+                });
+            });
+        }
+
+        renderDoshaStrip = function () {
+            var strip = document.getElementById("doshaStrip");
+            var dhtml = "";
+            if (_panelDoshas.mangal) {
+                var mg = _panelDoshas.mangal;
+                dhtml += '<div class="dosha-chip ' + (mg.has_dosha ? "dosha-active" : "dosha-clear") + '">'
+                    + '<span class="dosha-dot"></span>' + trUI("mangal") + ': '
+                    + (mg.has_dosha ? (mg.type || "Yes") : trUI("clear")) + '</div>';
+            }
+            if (_panelDoshas.kaal_sarp) {
+                var ks = _panelDoshas.kaal_sarp;
+                dhtml += '<div class="dosha-chip ' + (ks.has_dosha ? "dosha-active" : "dosha-clear") + '">'
+                    + '<span class="dosha-dot"></span>' + trUI("kaalSarp") + ': '
+                    + (ks.has_dosha ? (ks.type || "Yes") : trUI("clear")) + '</div>';
+            }
+            if (_panelDoshas.sade_sati) {
+                var ss = _panelDoshas.sade_sati;
+                dhtml += '<div class="dosha-chip ' + (ss.is_in_sade_sati ? "dosha-active" : "dosha-clear") + '">'
+                    + '<span class="dosha-dot"></span>' + trUI("sadeSati") + ': '
+                    + (ss.is_in_sade_sati ? (ss.transit_phase || trUI("active")) : trUI("inactive")) + '</div>';
+            }
+            if (dhtml) strip.innerHTML = dhtml;
+        }
+
+        if (hasData) { renderPlanetPanel(); renderDoshaStrip(); }
+    }
+
+    /* ── Cosmic Map Builder (Canvas — NASA Eyes style) ── */
+    function buildCosmicMap(planets) {
+        var container = document.getElementById("cosmicMap");
+        var tooltip = document.getElementById("cosmicTooltip");
+        container.innerHTML = "";
+
+        var canvas = document.createElement("canvas");
+        canvas.className = "cosmic-canvas";
+        container.appendChild(canvas);
+
+        var infoPanel = document.createElement("div");
+        infoPanel.className = "cosmic-info-panel";
+        container.appendChild(infoPanel);
+
+        var ctx = canvas.getContext("2d");
+        var W, H, CX, CY, dpr, scale;
+        var zoom = 0.15, targetZoom = 1;
+        var rotation = 0;
+        var TILT = 0.32;
+        var hovered = null, selected = null;
+        var mouseX = -1, mouseY = -1;
+
+        var SIGN_SYM = ["\u2648","\u2649","\u264A","\u264B","\u264C","\u264D",
+                        "\u264E","\u264F","\u2650","\u2651","\u2652","\u2653"];
+        var COLORS = {
+            Sun:"#E8A838",Moon:"#C0C8D0",Mars:"#E74C3C",Mercury:"#2ECC71",
+            Jupiter:"#F4D03F",Venus:"#E8B4D4",Saturn:"#5B8DEF",
+            Rahu:"#95A5A6",Ketu:"#D35400"
+        };
+        var SYMS = {
+            Sun:"\u2609",Moon:"\u263D",Mars:"\u2642",Mercury:"\u263F",Jupiter:"\u2643",
+            Venus:"\u2640",Saturn:"\u2644",Rahu:"\u260A",Ketu:"\u260B"
+        };
+        var ORBIT_FRAC = {
+            Sun:0.68,Moon:0.68,Mercury:0.53,Venus:0.53,Mars:0.53,
+            Jupiter:0.39,Saturn:0.39,Rahu:0.24,Ketu:0.24
+        };
+        var PLANET_SZ = {Sun:9,Moon:8,Mars:7,Mercury:6,Jupiter:10,Venus:7,Saturn:9,Rahu:6,Ketu:6};
+        var VEDIC_SIG = {
+            Sun:"Soul \u2022 Authority \u2022 Father \u2022 Government",
+            Moon:"Mind \u2022 Emotions \u2022 Mother \u2022 Nurturing",
+            Mars:"Energy \u2022 Courage \u2022 Property \u2022 Combat",
+            Mercury:"Intellect \u2022 Communication \u2022 Business",
+            Jupiter:"Wisdom \u2022 Fortune \u2022 Dharma \u2022 Children",
+            Venus:"Love \u2022 Luxury \u2022 Beauty \u2022 Marriage",
+            Saturn:"Discipline \u2022 Karma \u2022 Structure \u2022 Longevity",
+            Rahu:"Obsession \u2022 Innovation \u2022 Foreign \u2022 Illusion",
+            Ketu:"Liberation \u2022 Spirituality \u2022 Past Life"
+        };
+
+        /* Star field */
+        var stars = [];
+        var _s = 7;
+        function rng() { _s = (_s * 16807) % 2147483647; return (_s - 1) / 2147483646; }
+        for (var si = 0; si < 180; si++) {
+            stars.push({x: rng(), y: rng(), r: rng() * 1.4 + 0.2, o: rng() * 0.4 + 0.08, ph: rng() * 6.28});
+        }
+
+        /* Process planets into bodies */
+        var bodies = [];
+        planets.forEach(function (p) {
+            if (p.name === "Ascendant") return;
+            bodies.push({
+                name: p.name, deg: parseFloat(p.longitude_degrees) || 0,
+                sign: p.sign || "", degInSign: p.degree_in_sign, retro: p.is_retrograde,
+                lord: p.sign_lord || "", orbit: ORBIT_FRAC[p.name] || 0.53,
+                color: COLORS[p.name] || "#fff", sym: SYMS[p.name] || "\u25CF",
+                sz: PLANET_SZ[p.name] || 7, x: 0, y: 0, glow: 0, tGlow: 0
+            });
+        });
+
+        function resize() {
+            var rect = container.getBoundingClientRect();
+            W = rect.width; H = Math.min(W, 620);
+            container.style.height = H + "px";
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = W * dpr; canvas.height = H * dpr;
+            canvas.style.width = W + "px"; canvas.style.height = H + "px";
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            CX = W / 2; CY = H / 2;
+            scale = Math.min(W, H) * 0.44;
+        }
+
+        function toXY(deg, orbitFrac) {
+            var a = (deg - 90) * Math.PI / 180;
+            var r = orbitFrac * scale * zoom;
+            return {x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) * (1 - TILT)};
+        }
+
+        function hexRgb(h) {
+            return parseInt(h.substr(1,2),16)+","+parseInt(h.substr(3,2),16)+","+parseInt(h.substr(5,2),16);
+        }
+
+        /* ── Draw functions ── */
+        function drawBg() {
+            var g = ctx.createRadialGradient(CX, CY, 0, CX, CY, scale * 1.5);
+            g.addColorStop(0, "#16121e"); g.addColorStop(0.6, "#0e0b14"); g.addColorStop(1, "#070510");
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        }
+
+        function drawStars(t) {
+            for (var i = 0; i < stars.length; i++) {
+                var s = stars[i];
+                var a = s.o + Math.sin(t * 0.0008 + s.ph) * 0.18;
+                ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 6.28);
+                ctx.fillStyle = "rgba(255,255,255," + Math.max(0, a).toFixed(2) + ")"; ctx.fill();
+            }
+        }
+
+        function drawZodiac(rot) {
+            var oR = 0.92 * scale * zoom, iR = 0.82 * scale * zoom, mR = (oR + iR) / 2;
+            /* Outer and inner ellipses */
+            ctx.beginPath(); ctx.ellipse(CX, CY, oR, oR * (1 - TILT), 0, 0, 6.28);
+            ctx.strokeStyle = "rgba(232,168,56,0.18)"; ctx.lineWidth = 1.2; ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(CX, CY, iR, iR * (1 - TILT), 0, 0, 6.28);
+            ctx.strokeStyle = "rgba(232,168,56,0.1)"; ctx.lineWidth = 0.6; ctx.stroke();
+
+            for (var i = 0; i < 12; i++) {
+                var a1 = ((i * 30 + rot) - 90) * Math.PI / 180;
+                var amid = (((i * 30 + 15) + rot) - 90) * Math.PI / 180;
+                /* Divider line */
+                var p1 = {x: CX + oR * Math.cos(a1), y: CY + oR * Math.sin(a1) * (1 - TILT)};
+                var p2 = {x: CX + iR * Math.cos(a1), y: CY + iR * Math.sin(a1) * (1 - TILT)};
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                ctx.strokeStyle = "rgba(232,168,56,0.18)"; ctx.lineWidth = 0.5; ctx.stroke();
+                /* Sign symbol */
+                var sx = CX + mR * Math.cos(amid), sy = CY + mR * Math.sin(amid) * (1 - TILT);
+                ctx.save(); ctx.globalAlpha = 0.55;
+                ctx.font = Math.max(10, 14 * zoom | 0) + "px serif";
+                ctx.fillStyle = "#e8a838"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(SIGN_SYM[i], sx, sy); ctx.restore();
+                /* Sign name (translated) */
+                var nR = oR + 14 * zoom;
+                var nx = CX + nR * Math.cos(amid), ny = CY + nR * Math.sin(amid) * (1 - TILT);
+                ctx.save(); ctx.globalAlpha = 0.28;
+                ctx.font = Math.max(7, 9 * zoom | 0) + "px Inter,sans-serif";
+                ctx.fillStyle = "#e8a838"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(trVedic()[i], nx, ny); ctx.restore();
+            }
+        }
+
+        function drawOrbits() {
+            var fracs = [0.68, 0.53, 0.39, 0.24];
+            ctx.setLineDash([3, 7]);
+            fracs.forEach(function (f) {
+                var r = f * scale * zoom;
+                ctx.beginPath(); ctx.ellipse(CX, CY, r, r * (1 - TILT), 0, 0, 6.28);
+                ctx.strokeStyle = "rgba(232,168,56,0.07)"; ctx.lineWidth = 0.8; ctx.stroke();
+            });
+            ctx.setLineDash([]);
+        }
+
+        function drawCenter() {
+            var r = 28 * zoom;
+            var g = ctx.createRadialGradient(CX, CY, 0, CX, CY, r);
+            g.addColorStop(0, "rgba(232,168,56,0.15)"); g.addColorStop(1, "rgba(232,168,56,0)");
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(CX, CY, r, 0, 6.28); ctx.fill();
+            ctx.font = Math.max(14, 22 * zoom | 0) + "px serif";
+            ctx.fillStyle = "rgba(232,168,56,0.45)"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("\u0950", CX, CY + 2);
+        }
+
+        function drawPlanets(t) {
+            /* Sort by orbit (farthest first) for correct layering */
+            var sorted = bodies.slice().sort(function (a, b) { return a.orbit - b.orbit; });
+            sorted.forEach(function (b) {
+                var pos = toXY(b.deg + rotation, b.orbit);
+                b.x = pos.x; b.y = pos.y;
+                var sz = b.sz * zoom;
+                var isH = (b === hovered), isS = (b === selected);
+                b.tGlow = (isH || isS) ? 1 : 0;
+                b.glow += (b.tGlow - b.glow) * 0.12;
+                var rgb = hexRgb(b.color);
+
+                /* Radial line from center */
+                ctx.beginPath(); ctx.moveTo(CX, CY); ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = "rgba(" + rgb + ",0.03)"; ctx.lineWidth = 0.5; ctx.stroke();
+
+                /* Glow halo */
+                var gr = sz * (3 + b.glow * 3);
+                var gg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, gr);
+                gg.addColorStop(0, "rgba(" + rgb + "," + (0.18 + b.glow * 0.25).toFixed(2) + ")");
+                gg.addColorStop(1, "rgba(" + rgb + ",0)");
+                ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(b.x, b.y, gr, 0, 6.28); ctx.fill();
+
+                /* Planet body — sphere illusion */
+                var bodySz = sz + b.glow * 4;
+                var bg2 = ctx.createRadialGradient(b.x - bodySz * 0.3, b.y - bodySz * 0.35, bodySz * 0.1,
+                                                   b.x, b.y, bodySz);
+                bg2.addColorStop(0, "rgba(255,255,255,0.35)");
+                bg2.addColorStop(0.4, b.color);
+                bg2.addColorStop(1, "rgba(" + rgb + ",0.6)");
+                ctx.fillStyle = bg2; ctx.beginPath(); ctx.arc(b.x, b.y, bodySz, 0, 6.28); ctx.fill();
+
+                /* Border ring */
+                ctx.strokeStyle = "rgba(255,255,255," + (0.15 + b.glow * 0.35).toFixed(2) + ")";
+                ctx.lineWidth = 0.8; ctx.stroke();
+
+                /* Symbol */
+                ctx.font = "bold " + Math.max(8, (sz * 1.1 + b.glow * 3) | 0) + "px serif";
+                ctx.fillStyle = "rgba(255,255,255,0.92)";
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(b.sym, b.x, b.y + 1);
+
+                /* Retrograde badge */
+                if (b.retro) {
+                    ctx.font = "bold " + Math.max(7, 8 * zoom | 0) + "px sans-serif";
+                    ctx.fillStyle = "#E74C3C";
+                    ctx.fillText("\u211E", b.x + bodySz + 4, b.y - bodySz);
+                }
+
+                /* Name label */
+                var la = (b.deg + rotation - 90) * Math.PI / 180;
+                var ld = bodySz + 12 + b.glow * 5;
+                var lx = b.x + ld * Math.cos(la), ly = b.y + ld * Math.sin(la) * (1 - TILT);
+                ctx.font = Math.max(8, (9 + b.glow * 3) | 0) + "px Inter,sans-serif";
+                ctx.fillStyle = "rgba(" + rgb + "," + (0.5 + b.glow * 0.5).toFixed(2) + ")";
+                ctx.textAlign = "center"; ctx.fillText(trPlanet(b.name), lx, ly);
+            });
+        }
+
+        /* ── Hit detection ── */
+        function findAt(mx, my) {
+            var hit = null, best = 1e9;
+            bodies.forEach(function (b) {
+                var dx = mx - b.x, dy = my - b.y;
+                var d = Math.sqrt(dx * dx + dy * dy);
+                var r = b.sz * zoom + 18;
+                if (d < r && d < best) { hit = b; best = d; }
+            });
+            return hit;
+        }
+
+        /* ── Mouse events ── */
+        canvas.addEventListener("mousemove", function (e) {
+            var rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left; mouseY = e.clientY - rect.top;
+            var prev = hovered;
+            hovered = findAt(mouseX, mouseY);
+            canvas.style.cursor = hovered ? "pointer" : "default";
+
+            if (hovered) {
+                var d = hovered.degInSign != null ? parseFloat(hovered.degInSign).toFixed(1) + "\u00B0" : "";
+                tooltip.innerHTML = '<strong>' + (hovered.sym || "") + " " + trPlanet(hovered.name) + '</strong>'
+                    + (hovered.retro ? ' <span style="color:#E74C3C">\u211E</span>' : "")
+                    + '<br>' + trSign(hovered.sign) + " " + d
+                    + (hovered.lord ? '<br><span style="opacity:0.6">' + trUI("lord") + ': ' + hovered.lord + '</span>' : "");
+                tooltip.style.display = "block";
+                tooltip.style.left = Math.min(mouseX + 18, W - 160) + "px";
+                tooltip.style.top = (mouseY - 15) + "px";
+                highlightCosmicPlanet(hovered.name, true);
+                if (prev && prev !== hovered) highlightCosmicPlanet(prev.name, false);
+            } else {
+                tooltip.style.display = "none";
+                if (prev) highlightCosmicPlanet(prev.name, false);
+            }
+        });
+
+        canvas.addEventListener("mouseleave", function () {
+            if (hovered) highlightCosmicPlanet(hovered.name, false);
+            hovered = null; tooltip.style.display = "none";
+        });
+
+        canvas.addEventListener("click", function (e) {
+            var rect = canvas.getBoundingClientRect();
+            var clicked = findAt(e.clientX - rect.left, e.clientY - rect.top);
+            if (clicked) { selected = clicked; showInfo(clicked); }
+            else { selected = null; infoPanel.classList.remove("open"); }
+        });
+
+        canvas.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            targetZoom = Math.max(0.5, Math.min(2.5, targetZoom - e.deltaY * 0.001));
+        }, {passive: false});
+
+        /* Touch: tap = click */
+        canvas.addEventListener("touchend", function (e) {
+            if (e.changedTouches.length !== 1) return;
+            var tt = e.changedTouches[0];
+            var rect = canvas.getBoundingClientRect();
+            var clicked = findAt(tt.clientX - rect.left, tt.clientY - rect.top);
+            if (clicked) { selected = clicked; showInfo(clicked); }
+            else { selected = null; infoPanel.classList.remove("open"); }
+        });
+
+        /* ── Drag to rotate ── */
+        var isDragging = false, dragStartX = 0, dragStartRot = 0, autoRotate = true;
+        canvas.addEventListener("mousedown", function (e) {
+            if (hovered) return;
+            isDragging = true;
+            autoRotate = false;
+            dragStartX = e.clientX;
+            dragStartRot = rotation;
+            canvas.style.cursor = "grabbing";
+            e.preventDefault();
+        });
+        window.addEventListener("mousemove", function (e) {
+            if (!isDragging) return;
+            var dx = e.clientX - dragStartX;
+            rotation = dragStartRot + dx * 0.25;
+        });
+        window.addEventListener("mouseup", function () {
+            if (isDragging) {
+                isDragging = false;
+                autoRotate = true;
+                canvas.style.cursor = hovered ? "pointer" : "default";
+            }
+        });
+
+        /* Touch drag to rotate */
+        var touchStartX = 0, touchStartRot = 0;
+        canvas.addEventListener("touchstart", function (e) {
+            if (e.touches.length === 1) {
+                autoRotate = false;
+                touchStartX = e.touches[0].clientX;
+                touchStartRot = rotation;
+            }
+        }, {passive: true});
+        canvas.addEventListener("touchmove", function (e) {
+            if (e.touches.length === 1) {
+                var dx = e.touches[0].clientX - touchStartX;
+                rotation = touchStartRot + dx * 0.25;
+            }
+        }, {passive: true});
+        canvas.addEventListener("touchend", function () { autoRotate = true; }, {passive: true});
+
+        /* ── Double-click to zoom into planet ── */
+        canvas.addEventListener("dblclick", function (e) {
+            var rect = canvas.getBoundingClientRect();
+            var clicked = findAt(e.clientX - rect.left, e.clientY - rect.top);
+            if (clicked) {
+                targetZoom = Math.min(2.5, targetZoom + 0.5);
+                selected = clicked;
+                showInfo(clicked);
+            } else {
+                targetZoom = 1;
+            }
+        });
+
+        /* ── Info panel ── */
+        function showInfo(b) {
+            var d = b.degInSign != null ? parseFloat(b.degInSign).toFixed(1) + "\u00B0" : "";
+            infoPanel.innerHTML = '<button class="info-close" onclick="this.parentElement.classList.remove(\'open\')">\u2715</button>'
+                + '<div class="info-symbol" style="color:' + b.color + ';text-shadow:0 0 20px ' + b.color + '">' + b.sym + '</div>'
+                + '<div class="info-name">' + trPlanet(b.name)
+                + (b.retro ? ' <span style="color:#E74C3C;font-size:0.75em">\u211E Retrograde</span>' : '') + '</div>'
+                + '<div class="info-row"><span class="info-label">' + trUI("sign") + '</span><span class="info-val">' + trSign(b.sign) + ' ' + d + '</span></div>'
+                + '<div class="info-row"><span class="info-label">' + trUI("lord") + '</span><span class="info-val">' + b.lord + '</span></div>'
+                + '<div class="info-row"><span class="info-label">' + trUI("longitude") + '</span><span class="info-val">' + b.deg.toFixed(2) + '\u00B0</span></div>'
+                + '<div class="info-sig">' + trSig(b.name) + '</div>';
+            infoPanel.classList.add("open");
+        }
+
+        /* ── Animation loop ── */
+        var t = 0, fadeIn = 0;
+        function frame() {
+            t++;
+            if (autoRotate) rotation += 0.012;
+            zoom += (targetZoom - zoom) * 0.03;
+            if (fadeIn < 1) fadeIn = Math.min(1, fadeIn + 0.008);
+
+            ctx.clearRect(0, 0, W, H);
+            ctx.globalAlpha = 1;
+            drawBg();
+            ctx.globalAlpha = fadeIn;
+            drawStars(t);
+            drawOrbits();
+            drawZodiac(rotation);
+            drawCenter();
+            drawPlanets(t);
+            ctx.globalAlpha = 1;
+
+            requestAnimationFrame(frame);
+        }
+
+        resize();
+        window.addEventListener("resize", resize);
+        frame();
+    }
+
+    function highlightCosmicPlanet(name, on) {
+        var map = document.getElementById("cosmicMap");
+        if (!map) return;
+        map.querySelectorAll('.cosmic-planet[data-name="' + name + '"]').forEach(function (el) {
+            if (on) { el.setAttribute("r", "14"); el.style.filter = "url(#glow)"; }
+            else { el.setAttribute("r", "10"); el.style.filter = ""; }
+        });
+        var card = document.querySelector('.planet-card[data-planet="' + name + '"]');
+        if (card) {
+            if (on) card.classList.add("planet-card-active");
+            else card.classList.remove("planet-card-active");
+        }
+    }
+
+    /* ── Regenerate reading ── */
+    document.getElementById("regenBtn").addEventListener("click", function () {
+        document.getElementById("readingContent").style.display = "none";
+        document.getElementById("errorState").style.display = "none";
+        document.getElementById("loadingState").style.display = "flex";
+        loadingStep.textContent = "Starting up...";
+        stepContainer.innerHTML = "";
+        completedSteps = [];
+        chatHistory = [];
+        questionsUsed = 0;
+        updateCounter();
+        document.getElementById("chatMessages").innerHTML = "";
+        startFreshReading();
+    });
+
+    /* ── PDF download (server-side) ── */
+    document.getElementById("downloadPdfBtn").addEventListener("click", function () {
+        var btn = this;
+        btn.textContent = "Generating...";
+        btn.disabled = true;
+
+        var chatParam = encodeURIComponent(JSON.stringify(chatHistory));
+        var url = "/api/download-pdf?chat=" + chatParam;
+
+        fetch(url)
+            .then(function (r) {
+                if (!r.ok) throw new Error("PDF generation failed");
+                return r.blob();
+            })
+            .then(function (blob) {
+                var a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "krama-" + username + ".pdf";
+                a.click();
+                URL.revokeObjectURL(a.href);
+            })
+            .catch(function (err) {
+                console.error("PDF error:", err);
+                alert("Could not generate PDF. Please try again.");
+            })
+            .finally(function () {
+                btn.textContent = "Download PDF";
+                btn.disabled = false;
+            });
+    });
+
+    /* ── Language toggle (instant, no reload, no tokens) ── */
+    function applyLanguage(lang) {
+        currentLang = lang;
+
+        /* Update cosmic map title */
+        var cmTitle = document.querySelector(".chart-viewer-title");
+        if (cmTitle) cmTitle.textContent = trUI("cosmicTitle");
+
+        /* Re-render planet panel & doshas with translated names */
+        if (typeof renderPlanetPanel === "function") renderPlanetPanel();
+        if (typeof renderDoshaStrip === "function") renderDoshaStrip();
+
+        /* Update UI labels */
+        var chatTitle = document.querySelector(".chat-title");
+        if (chatTitle) chatTitle.textContent = trUI("chatTitle");
+
+        var chatInput = document.getElementById("chatInput");
+        if (chatInput) chatInput.placeholder = trUI("chatPlaceholder");
+
+        var qCounter = document.querySelector(".chat-counter");
+        if (qCounter) {
+            var remaining = MAX_QUESTIONS - questionsUsed;
+            qCounter.innerHTML = '<span id="questionCount">' + remaining + '</span> ' + trUI("remaining");
+        }
+
+        var dlBtn = document.getElementById("downloadPdfBtn");
+        if (dlBtn) dlBtn.textContent = trUI("download");
+
+        var regenBtn = document.getElementById("regenBtn");
+        if (regenBtn) regenBtn.textContent = trUI("regen");
+
+        var tradToggle = document.querySelector(".traditional-toggle");
+        if (tradToggle) tradToggle.textContent = trUI("traditional");
+
+        /* Canvas cosmic map picks up trVedic()/trPlanet() on next frame automatically */
+    }
+
+    document.querySelectorAll(".lang-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var lang = btn.getAttribute("data-lang");
+            document.querySelectorAll(".lang-btn").forEach(function (b) { b.classList.remove("lang-active"); });
+            btn.classList.add("lang-active");
+
+            applyLanguage(lang);
+
+            fetch("/api/set-lang", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({lang: lang})
+            });
+        });
+    });
+
+    /* ── Fullscreen cosmic map on first view ── */
+    var cosmicFS = document.getElementById("cosmicFullscreen");
+    var cosmicHint = document.getElementById("cosmicHint");
+    var cosmicContinue = document.getElementById("cosmicContinue");
+
+    function collapseFullscreen() {
+        if (!cosmicFS.classList.contains("active")) return;
+        cosmicFS.classList.remove("active");
+        cosmicFS.classList.add("collapsed");
+        document.body.style.overflow = "";
+        var readingCard = document.querySelector(".reading-card");
+        if (readingCard) {
+            setTimeout(function () {
+                readingCard.scrollIntoView({behavior: "smooth", block: "start"});
+            }, 400);
+        }
+    }
+
+    cosmicContinue.addEventListener("click", collapseFullscreen);
+
+    /* Also collapse on scroll down while fullscreen */
+    var scrollHandler = function () {
+        if (cosmicFS.classList.contains("active") && window.scrollY > 80) {
+            collapseFullscreen();
+            window.removeEventListener("scroll", scrollHandler);
+        }
+    };
+
+    /* Activate fullscreen when charts section becomes visible */
+    var _origShowReading = showReading;
+    showReading = function (data) {
+        _origShowReading(data);
+        if (data.planets && data.planets.length > 0) {
+            cosmicFS.classList.add("active");
+            document.body.style.overflow = "hidden";
+            window.addEventListener("scroll", scrollHandler);
+            /* Auto-hide hint after 4 seconds */
+            setTimeout(function () {
+                if (cosmicHint) cosmicHint.classList.add("fade-out");
+            }, 4000);
+        }
+    };
+})();
+</script>
+{% endblock %}

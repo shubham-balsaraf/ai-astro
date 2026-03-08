@@ -1,0 +1,5 @@
+flask>=3.0
+python-dotenv>=1.0
+requests>=2.31
+anthropic>=0.40
+fpdf2>=2.8

@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+*.log
+static/fonts/
+activity_report.md
+monitor.sh

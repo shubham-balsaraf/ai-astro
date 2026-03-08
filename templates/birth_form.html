@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Birth Details - Krama{% endblock %}
+
+{% block content %}
+<div class="page-section">
+    <h1 class="section-title">Namaste, {{ username }}</h1>
+    <p class="section-subtitle">Share your birth details to reveal your celestial blueprint</p>
+
+    <form method="POST" class="card form-card" id="birthForm">
+        <div class="form-group">
+            <label for="birth_date" class="input-label">Date of Birth</label>
+            <input type="date" id="birth_date" name="birth_date" required class="input-field"
+                   value="{{ user.birth_date or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="birth_time" class="input-label">Time of Birth</label>
+            <input type="time" id="birth_time" name="birth_time" required class="input-field"
+                   value="{{ user.birth_time or '' }}">
+            <span class="input-hint">As accurate as possible for best results</span>
+        </div>
+
+        <div class="form-group">
+            <label for="birth_place" class="input-label">Place of Birth</label>
+            <input
+                type="text"
+                id="birth_place"
+                name="birth_place"
+                placeholder="e.g. Mumbai, India"
+                required
+                autocomplete="off"
+                class="input-field"
+                value="{{ user.birth_place or '' }}"
+            >
+            <div id="placeSuggestions" class="suggestions-dropdown"></div>
+            <span class="input-hint">Start typing and select from suggestions</span>
+        </div>
+
+        <input type="hidden" id="latitude" name="latitude" required value="{{ user.latitude or '' }}">
+        <input type="hidden" id="longitude" name="longitude" required value="{{ user.longitude or '' }}">
+
+        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+            Reveal My Stars
+        </button>
+    </form>
+</div>
+{% endblock %}

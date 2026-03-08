@@ -1,0 +1,1212 @@
+/* ==========================================================================
+   Krama — Vedic-modern theme
+   Dark base + saffron/gold accents, clean typography
+   ========================================================================== */
+
+:root {
+    --bg:        #0c0a13;
+    --bg-card:   #161222;
+    --bg-card-hover: #1c1730;
+    --surface:   #1e1a2e;
+    --border:    #2a2540;
+    --text:      #e8e4f0;
+    --text-dim:  #9992ab;
+    --accent:    #e8a838;
+    --accent-glow: rgba(232, 168, 56, 0.15);
+    --accent-dark: #c48820;
+    --danger:    #e85555;
+    --radius:    12px;
+    --radius-lg: 20px;
+    --font-display: 'Cinzel', serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+}
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.6;
+}
+
+/* ---------- Navbar ---------- */
+
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(12, 10, 19, 0.9);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-brand {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.nav-logo {
+    width: 2rem;
+    height: 2rem;
+    color: var(--accent);
+    filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.nav-user {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.nav-link {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.nav-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* ---------- Container & Layout ---------- */
+
+.container {
+    flex: 1;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* ---------- Hero (Landing) ---------- */
+
+.hero {
+    text-align: center;
+    padding-top: 4rem;
+}
+
+.hero-symbol {
+    color: var(--accent);
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 0 30px var(--accent-glow));
+}
+
+.hero-logo {
+    width: 6rem;
+    height: 6rem;
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { filter: drop-shadow(0 0 15px var(--accent-glow)); }
+    50% { filter: drop-shadow(0 0 35px var(--accent)); }
+}
+
+.hero-title {
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.06em;
+    margin-bottom: 0.5rem;
+}
+
+.hero-subtitle {
+    color: var(--text-dim);
+    font-size: 1rem;
+    font-weight: 300;
+    margin-bottom: 3rem;
+}
+
+.hero-features {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin-top: 3rem;
+}
+
+.feature {
+    text-align: center;
+}
+
+.feature-icon {
+    font-size: 1.8rem;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+}
+
+.feature p {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+}
+
+.entry-card {
+    max-width: 380px;
+    margin: 0 auto;
+}
+
+.form-card {
+    margin-top: 1.5rem;
+}
+
+/* ---------- Form Elements ---------- */
+
+.form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.input-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.input-field {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    transition: border-color 0.2s;
+    outline: none;
+}
+
+.input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.input-field::placeholder {
+    color: var(--text-dim);
+    opacity: 0.6;
+}
+
+.input-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.3rem;
+    opacity: 0.7;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+    display: inline-block;
+    padding: 0.8rem 1.8rem;
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: center;
+}
+
+.btn-primary {
+    width: 100%;
+    margin-top: 1rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #0c0a13;
+    font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px var(--accent-glow);
+}
+
+.btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ---------- Place Suggestions ---------- */
+
+.suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 50;
+    display: none;
+}
+
+.suggestions-dropdown.active {
+    display: block;
+}
+
+.suggestion-item {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: var(--surface);
+    color: var(--accent);
+}
+
+/* ---------- Page Sections ---------- */
+
+.page-section {
+    padding-top: 2rem;
+}
+
+.section-title {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.section-subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+}
+
+/* ---------- Language Toggle ---------- */
+
+.lang-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 0.8rem;
+    background: rgba(30, 26, 46, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 3px;
+    display: inline-flex;
+}
+
+.reading-header {
+    text-align: center;
+}
+
+.reading-header .lang-toggle {
+    margin: 0.8rem auto 0;
+}
+
+.lang-btn {
+    padding: 6px 16px;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.lang-btn:hover {
+    color: var(--text);
+}
+
+.lang-btn.lang-active {
+    background: rgba(232, 168, 56, 0.15);
+    color: var(--accent);
+}
+
+/* ---------- Loading State ---------- */
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4rem 0;
+}
+
+.loader {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1.5rem;
+}
+
+.loader-ring {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1.5s linear infinite;
+}
+
+.loader-symbol {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.loading-text {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+}
+
+.progress-steps {
+    width: 100%;
+    max-width: 320px;
+}
+
+.step-item {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    padding: 0.35rem 0;
+    transition: color 0.3s;
+}
+
+.step-item.step-done {
+    color: var(--accent);
+}
+
+/* ---------- Reading Content ---------- */
+
+.reading-header {
+    margin-bottom: 1rem;
+}
+
+.reading-card {
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.reading-text h1,
+.reading-text h2,
+.reading-text h3 {
+    font-family: var(--font-display);
+    color: var(--accent);
+    margin: 1.5rem 0 0.7rem;
+}
+
+.reading-text h1 { font-size: 1.5rem; }
+.reading-text h2 { font-size: 1.25rem; }
+.reading-text h3 { font-size: 1.1rem; }
+
+.reading-text p {
+    margin-bottom: 0.8rem;
+    line-height: 1.7;
+}
+
+.reading-text ul, .reading-text ol {
+    margin: 0.5rem 0 1rem 1.5rem;
+}
+
+.reading-text li {
+    margin-bottom: 0.3rem;
+}
+
+.reading-text strong {
+    color: var(--accent);
+}
+
+.reading-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+/* ---------- Chat Box ---------- */
+
+.chat-card {
+    margin-top: 2rem;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.chat-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--accent);
+}
+
+.chat-counter {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.chat-messages {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.chat-msg {
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 0.8rem;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+.chat-msg p { margin-bottom: 0.5rem; }
+.chat-msg p:last-child { margin-bottom: 0; }
+
+.chat-msg-user {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.chat-msg-assistant {
+    background: rgba(232, 168, 56, 0.06);
+    border: 1px solid rgba(232, 168, 56, 0.15);
+}
+
+.chat-msg-assistant strong { color: var(--accent); }
+.chat-msg-assistant h1,
+.chat-msg-assistant h2,
+.chat-msg-assistant h3 {
+    font-family: var(--font-display);
+    color: var(--accent);
+    font-size: 1rem;
+    margin: 0.8rem 0 0.4rem;
+}
+
+.chat-input-row {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.chat-input {
+    flex: 1;
+}
+
+.chat-send {
+    width: auto;
+    margin-top: 0;
+    padding: 0.8rem 1.5rem;
+    white-space: nowrap;
+}
+
+/* ---------- Typing Indicator ---------- */
+
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1rem 1.2rem;
+}
+
+.typing-indicator .dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: typingBounce 1.4s ease-in-out infinite;
+}
+
+.typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ---------- Error State ---------- */
+
+.error-container {
+    flex-direction: column;
+    align-items: center;
+    padding: 4rem 0;
+    text-align: center;
+}
+
+.error-icon {
+    font-size: 3rem;
+    color: var(--danger);
+    margin-bottom: 1rem;
+}
+
+.error-text {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.error-detail {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ---------- Wide container for reading ---------- */
+
+.container-wide {
+    max-width: 900px;
+}
+
+/* ---------- Chart Viewer (Apple-style) ---------- */
+
+.chart-viewer {
+    margin-bottom: 2rem;
+    animation: fadeInUp 0.6s ease;
+}
+
+.chart-viewer-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.chart-viewer-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    letter-spacing: 0.03em;
+}
+
+/* Segmented Control */
+.chart-tabs {
+    display: inline-flex;
+    position: relative;
+    background: rgba(30, 26, 46, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 2px;
+}
+
+.chart-tab-indicator {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    height: calc(100% - 8px);
+    background: rgba(232, 168, 56, 0.15);
+    border-radius: 9px;
+    transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.chart-tab {
+    position: relative;
+    z-index: 1;
+    padding: 8px 16px;
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: color 0.25s ease;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.chart-tab:hover {
+    color: var(--text);
+}
+
+.chart-tab.active {
+    color: var(--accent);
+}
+
+/* Chart Stage */
+.chart-stage {
+    position: relative;
+    background: rgba(22, 18, 34, 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 1.5rem;
+    min-height: 360px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.chart-pane {
+    position: absolute;
+    inset: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+
+.chart-pane.active {
+    position: relative;
+    inset: auto;
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+.chart-svg {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.chart-svg svg {
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+}
+
+.chart-svg:hover svg {
+    transform: scale(1.02);
+}
+
+.chart-svg text {
+    fill: var(--text) !important;
+    transition: fill 0.2s ease, font-size 0.2s ease;
+    cursor: pointer;
+}
+
+.chart-svg line,
+.chart-svg path,
+.chart-svg polygon,
+.chart-svg polyline {
+    stroke: rgba(232, 168, 56, 0.5) !important;
+    transition: stroke 0.2s ease;
+}
+
+.chart-svg rect[fill],
+.chart-svg polygon[fill] {
+    fill: rgba(22, 18, 34, 0.8) !important;
+}
+
+/* Planet Panel */
+.planet-panel {
+    margin-top: 1rem;
+}
+
+.planet-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.planet-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(30, 26, 46, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    cursor: default;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.planet-card:hover,
+.planet-card-active {
+    background: rgba(232, 168, 56, 0.1);
+    border-color: rgba(232, 168, 56, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(232, 168, 56, 0.1);
+}
+
+.planet-symbol {
+    font-size: 1.2rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(232, 168, 56, 0.08);
+    border-radius: 8px;
+    color: var(--accent);
+}
+
+.planet-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.planet-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.planet-detail {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.retro-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--danger);
+    background: rgba(232, 85, 85, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+/* Dosha Status Strip */
+.dosha-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.dosha-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    border: 1px solid;
+}
+
+.dosha-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dosha-clear {
+    background: rgba(80, 200, 120, 0.06);
+    border-color: rgba(80, 200, 120, 0.2);
+    color: #50c878;
+}
+
+.dosha-clear .dosha-dot {
+    background: #50c878;
+    box-shadow: 0 0 6px rgba(80, 200, 120, 0.4);
+}
+
+.dosha-active {
+    background: rgba(232, 168, 56, 0.06);
+    border-color: rgba(232, 168, 56, 0.2);
+    color: var(--accent);
+}
+
+.dosha-active .dosha-dot {
+    background: var(--accent);
+    box-shadow: 0 0 6px rgba(232, 168, 56, 0.4);
+}
+
+/* ---------- Cosmic Map ---------- */
+
+.cosmic-fullscreen {
+    position: relative;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cosmic-fullscreen.active {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #070510;
+}
+
+.cosmic-fullscreen.active .cosmic-map-container {
+    margin: 0;
+}
+
+.cosmic-fullscreen.active .cosmic-map {
+    max-width: min(90vw, 90vh);
+    width: min(90vw, 90vh);
+}
+
+.cosmic-fullscreen.active .chart-viewer-title {
+    color: var(--accent);
+    font-size: 1.4rem;
+    text-align: center;
+    margin-bottom: 0.8rem;
+    text-shadow: 0 0 30px var(--accent-glow);
+}
+
+.cosmic-fullscreen.collapsed .cosmic-map {
+    max-width: 660px;
+}
+
+/* Hint overlay */
+.cosmic-hint {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 1rem;
+    letter-spacing: 0.08em;
+    opacity: 0.6;
+    transition: opacity 0.8s ease;
+}
+
+.cosmic-hint.fade-out {
+    opacity: 0;
+}
+
+.cosmic-fullscreen:not(.active) .cosmic-hint {
+    display: none;
+}
+
+/* Continue button */
+.cosmic-continue {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1.5rem;
+    padding: 12px 28px;
+    background: rgba(232, 168, 56, 0.12);
+    border: 1px solid rgba(232, 168, 56, 0.3);
+    border-radius: 30px;
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: bob 2s ease-in-out infinite 3s;
+}
+
+.cosmic-fullscreen.active .cosmic-continue {
+    display: flex;
+}
+
+.cosmic-continue:hover {
+    background: rgba(232, 168, 56, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(232, 168, 56, 0.15);
+}
+
+@keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+}
+
+.cosmic-map-container {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.cosmic-map {
+    position: relative;
+    width: 100%;
+    max-width: 660px;
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.cosmic-canvas {
+    display: block;
+    border-radius: 16px;
+    box-shadow:
+        0 0 80px rgba(232, 168, 56, 0.06),
+        0 4px 40px rgba(0, 0, 0, 0.4);
+    cursor: grab;
+}
+
+.cosmic-canvas:active {
+    cursor: grabbing;
+}
+
+.cosmic-tooltip {
+    display: none;
+    position: absolute;
+    background: rgba(15, 12, 22, 0.94);
+    border: 1px solid rgba(232, 168, 56, 0.3);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    pointer-events: none;
+    z-index: 20;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+}
+
+/* Info panel (click on planet) */
+.cosmic-info-panel {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%) translateX(20px);
+    width: 190px;
+    background: rgba(15, 12, 22, 0.92);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(232, 168, 56, 0.2);
+    border-radius: 16px;
+    padding: 20px 16px;
+    color: var(--text);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 25;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.cosmic-info-panel.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
+}
+
+.info-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.info-close:hover { color: var(--text); }
+
+.info-symbol {
+    font-size: 2.8rem;
+    text-align: center;
+    margin-bottom: 4px;
+    line-height: 1;
+}
+
+.info-name {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    text-align: center;
+    margin-bottom: 12px;
+    color: var(--text);
+    letter-spacing: 0.03em;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.78rem;
+}
+
+.info-label { color: var(--text-dim); }
+.info-val { color: var(--text); font-weight: 500; }
+
+.info-sig {
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: var(--accent);
+    opacity: 0.7;
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* Traditional charts toggle */
+.traditional-charts {
+    margin-top: 1.5rem;
+}
+
+.traditional-toggle {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-family: var(--font-body);
+    padding: 0.7rem 1rem;
+    background: rgba(232, 168, 56, 0.05);
+    border: 1px solid rgba(232, 168, 56, 0.15);
+    border-radius: 10px;
+    list-style: none;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.traditional-toggle:hover {
+    background: rgba(232, 168, 56, 0.1);
+}
+
+.traditional-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.traditional-toggle::before {
+    content: "\25B8 ";
+}
+
+.traditional-charts[open] > .traditional-toggle::before {
+    content: "\25BE ";
+}
+
+.traditional-charts .chart-tabs {
+    margin-top: 1rem;
+}
+
+/* ---------- Footer ---------- */
+
+.footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 640px) {
+    .hero-title { font-size: 2rem; }
+    .hero-features { gap: 1.2rem; }
+    .container { padding: 1.5rem 1rem; }
+    .card { padding: 1.5rem; }
+    .reading-actions { flex-direction: column; }
+
+    .cosmic-map { max-width: 100%; }
+    .cosmic-fullscreen.active .cosmic-map { max-width: 95vw; width: 95vw; }
+    .cosmic-tooltip { font-size: 0.75rem; padding: 8px 10px; }
+    .cosmic-continue { font-size: 0.8rem; padding: 10px 22px; }
+    .cosmic-info-panel {
+        position: fixed;
+        right: 10px;
+        top: auto;
+        bottom: 20px;
+        transform: translateY(20px);
+        width: calc(100% - 20px);
+        max-width: 320px;
+        border-radius: 14px;
+    }
+    .cosmic-info-panel.open { transform: translateY(0); }
+
+    .chart-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+        border-radius: 14px;
+    }
+    .chart-tab { padding: 7px 12px; font-size: 0.76rem; }
+    .chart-stage { padding: 1rem; min-height: 280px; border-radius: 16px; }
+    .planet-grid { gap: 6px; }
+    .planet-card { padding: 6px 10px; }
+    .container-wide { max-width: 100%; }
+}
