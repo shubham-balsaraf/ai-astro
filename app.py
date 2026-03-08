@@ -2,7 +2,12 @@ import io
 import json
 import os
 import re
+import smtplib
 import time
+import threading
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+from email.mime.text import MIMEText
 import requests
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response, send_file
 from dotenv import load_dotenv
@@ -546,6 +551,53 @@ def generate_pdf(username, reading_text, chat_messages=None):
     return buf
 
 
+ADMIN_EMAIL = "balsaraf.shubham@gmail.com"
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+
+
+def email_reading_to_admin(username, reading_text, birth_info=None):
+    """Send reading PDF to admin in a background thread."""
+    if not SMTP_USER or not SMTP_PASS:
+        app.logger.warning("SMTP not configured — skipping email")
+        return
+
+    def _send():
+        try:
+            pdf_buf = generate_pdf(username, reading_text)
+            pdf_bytes = pdf_buf.read()
+
+            msg = MIMEMultipart()
+            msg["From"] = SMTP_USER
+            msg["To"] = ADMIN_EMAIL
+            msg["Subject"] = f"Krama — New reading for {username}"
+
+            body_lines = [f"New reading generated for **{username}**"]
+            if birth_info:
+                body_lines.append(
+                    f"Birth: {birth_info.get('date','')} at {birth_info.get('time','')} "
+                    f"in {birth_info.get('place','')}"
+                )
+            body_lines.append(f"\nSee attached PDF for the full report.")
+            msg.attach(MIMEText("\n".join(body_lines), "plain"))
+
+            attachment = MIMEApplication(pdf_bytes, _subtype="pdf")
+            attachment.add_header(
+                "Content-Disposition", "attachment",
+                filename=f"krama_{username}.pdf",
+            )
+            msg.attach(attachment)
+
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(SMTP_USER, SMTP_PASS)
+                smtp.send_message(msg)
+            app.logger.info(f"Reading emailed to {ADMIN_EMAIL} for {username}")
+        except Exception as e:
+            app.logger.error(f"Email failed for {username}: {e}")
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -707,6 +759,11 @@ def api_reading_stream():
             }
             save_payload = dict(structured, _charts=charts)
             db.save_reading(username, reading_text, save_payload)
+            email_reading_to_admin(username, reading_text, {
+                "date": session.get("birth_date", ""),
+                "time": session.get("birth_time", ""),
+                "place": session.get("birth_place", ""),
+            })
             yield f"data: {json.dumps({'done': True, 'reading': reading_text, 'charts': charts, 'planets': planets, 'doshas': doshas})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
